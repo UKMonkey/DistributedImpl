@@ -4,6 +4,7 @@ using DistributedShared.Network.Messages;
 using DistributedShared.SystemMonitor;
 using DistributedSharedInterfaces.Messages;
 using DistributedShared.Network;
+using DistributedSharedInterfaces.Network;
 
 namespace DistributedServerDll.SystemMonitor
 {

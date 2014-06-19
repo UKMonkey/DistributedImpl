@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using DistributedShared.Network;
 
 using MessageCallback=DistributedServerInterfaces.Networking.MessageCallback;
+using DistributedSharedInterfaces.Network;
 
 
 namespace DistributedServerDll.Networking

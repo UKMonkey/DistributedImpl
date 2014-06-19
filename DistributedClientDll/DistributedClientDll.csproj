@@ -33,11 +33,13 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Data.SQLite">
-      <HintPath>..\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.dll</HintPath>
+    <Reference Include="System.Data.SQLite, Version=1.0.80.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\DistributedInterfaces\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.dll</HintPath>
     </Reference>
-    <Reference Include="System.Data.SQLite.Linq">
-      <HintPath>..\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.Linq.dll</HintPath>
+    <Reference Include="System.Data.SQLite.Linq, Version=1.0.80.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\DistributedInterfaces\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.Linq.dll</HintPath>
     </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -60,11 +62,11 @@
     <Compile Include="Wrappers\JobResultData.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DistributedClientInterfaces\DistributedClientInterfaces.csproj">
+    <ProjectReference Include="..\..\DistributedInterfaces\DistributedClientInterfaces\DistributedClientInterfaces.csproj">
       <Project>{92B489FA-6DF6-43B4-9C8D-F4979ECE0179}</Project>
       <Name>DistributedClientInterfaces</Name>
     </ProjectReference>
-    <ProjectReference Include="..\DistributedSharedInterfaces\DistributedSharedInterfaces.csproj">
+    <ProjectReference Include="..\..\DistributedInterfaces\DistributedSharedInterfaces\DistributedSharedInterfaces.csproj">
       <Project>{5AAB8AAE-733E-4A7B-925A-C0346F25FAF9}</Project>
       <Name>DistributedSharedInterfaces</Name>
     </ProjectReference>

@@ -9,6 +9,7 @@ using DistributedShared.SystemMonitor;
 using DistributedShared.SystemMonitor.Managers;
 using DistributedSharedInterfaces.Messages;
 using DistributedShared.Network;
+using DistributedSharedInterfaces.Network;
 
 namespace DistributedClientDll.Networking
 {

@@ -1,5 +1,6 @@
 ﻿using System.Net.Sockets;
 using DistributedSharedInterfaces.Messages;
+using DistributedSharedInterfaces.Network;
 
 namespace DistributedShared.Network
 {

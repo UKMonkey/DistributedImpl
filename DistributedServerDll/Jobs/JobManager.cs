@@ -9,6 +9,7 @@ using DistributedSharedInterfaces.Jobs;
 using DistributedSharedInterfaces.Messages;
 using DistributedShared.Network.Messages;
 using DistributedShared.Network;
+using DistributedSharedInterfaces.Network;
 
 namespace DistributedServerDll.Jobs
 {
