@@ -1,0 +1,79 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{99099000-6BC2-4E2F-BA78-3BD4E7BA6731}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>DistributedServerDll</RootNamespace>
+    <AssemblyName>DistributedServerDll</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.SQLite">
+      <HintPath>..\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Data.SQLite.Linq">
+      <HintPath>..\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.Linq.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Jobs\JobManager.cs" />
+    <Compile Include="Jobs\RequestProcessor.cs" />
+    <Compile Include="Networking\ClientSecurityManager.cs" />
+    <Compile Include="Networking\ConnectionManager.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Server.cs" />
+    <Compile Include="SystemMonitor\DllManager.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DistributedServerInterfaces\DistributedServerInterfaces.csproj">
+      <Project>{D237E40E-4CCC-48B3-BEBD-5C01E26827DC}</Project>
+      <Name>DistributedServerInterfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\DistributedSharedInterfaces\DistributedSharedInterfaces.csproj">
+      <Project>{5AAB8AAE-733E-4A7B-925A-C0346F25FAF9}</Project>
+      <Name>DistributedSharedInterfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\DistributedShared\DistributedShared.csproj">
+      <Project>{EDCD524D-0F90-450F-9ECD-C5BE3804E6FC}</Project>
+      <Name>DistributedShared</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
