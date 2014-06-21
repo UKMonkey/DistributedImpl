@@ -5,9 +5,10 @@ namespace DistributedShared.Jobs
     public class JobData : IJobData
     {
         public string DllName { get; set; }
+        public long SupportingDataVersion { get; set; }
+
         public long JobId { get; set; }
         public byte[] Data { get; set; }
-        public string SupportingDataMd5 { get; set; }
 
         public JobData(long jobId, byte[] data, string dllName)
         {

@@ -7,14 +7,14 @@ namespace DistributedShared.Network.Messages
     {
         public string DllName;
 
-        public string Md5 { get; set; }
+        public long Version { get; set; }
         public byte[] Data { get; set; }
 
 
         protected override void Serialise(IMessageInputStream target)
         {
             target.Write(DllName);
-            target.Write(Md5);
+            target.Write(Version);
             target.Write(Data);
         }
 
@@ -22,7 +22,7 @@ namespace DistributedShared.Network.Messages
         protected override void Deserialise(IMessageOutputStream source)
         {
             DllName = source.ReadString();
-            Md5 = source.ReadString();
+            Version = source.ReadLong();
             Data = source.ReadByteArray();
         }
     }

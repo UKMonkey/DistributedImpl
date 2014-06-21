@@ -36,7 +36,7 @@ namespace DistributedClientDll
             {
                 Disconnect();
 
-                _dllMonitor = new DllMonitor(clientTargetNewDirectory, clientTargetWorkingDirectory);
+                _dllMonitor = new DllMonitor(clientTargetNewDirectory, clientTargetWorkingDirectory, "client");
                 _connectionManager = new ConnectionManager(hostName, port, _dllMonitor);
                 _dllProcessor = new DllProcessor(_dllMonitor, _connectionManager);
 

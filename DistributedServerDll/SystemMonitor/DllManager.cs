@@ -26,7 +26,7 @@ namespace DistributedServerDll.SystemMonitor
             connectionManager.NewConnectionMade += SendExistingDllMds;
             connectionManager.RegisterMessageListener(typeof(ClientDllRequestMessage), HandleClientDllRequest);
 
-            _dllClientMonitor = new DllMonitor(clientDllLibraryUpdates, clientDllLibraryInUse) { PerformDllLoads = false };
+            _dllClientMonitor = new DllMonitor(clientDllLibraryUpdates, clientDllLibraryInUse, "serverClient") { PerformDllLoads = false };
             _dllClientMonitor.StartMonitoring();
         }
 

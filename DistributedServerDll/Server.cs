@@ -33,7 +33,7 @@ namespace DistributedServerDll
             if (_listening)
                 return;
 
-            _dllMonitor = new DllMonitor(serverTargetNewDirectory, serverTargetWorkingDirectory);
+            _dllMonitor = new DllMonitor(serverTargetNewDirectory, serverTargetWorkingDirectory, "server");
             _messageManager = new MessageManager(_dllMonitor);
             _connectionManager = new ConnectionManager(_messageManager);
 

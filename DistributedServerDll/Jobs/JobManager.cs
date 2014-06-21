@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using DistributedServerDll.Networking;
 using DistributedShared.SystemMonitor;
 using DistributedServerInterfaces.Networking;
 using DistributedServerInterfaces.Interfaces;
 using DistributedSharedInterfaces.Jobs;
 using DistributedSharedInterfaces.Messages;
 using DistributedShared.Network.Messages;
-using DistributedShared.Network;
 using DistributedSharedInterfaces.Network;
 
 namespace DistributedServerDll.Jobs
@@ -115,17 +113,17 @@ namespace DistributedServerDll.Jobs
         private void HandleGetSupportMd5Request(IConnection con, Message data)
         {
             var msg = (ClientGetSupportDataMd5Message) data;
-            Message reply = null;
+            Message reply;
 
             lock (this)
             {
                 if (!_requestProcessors.ContainsKey(msg.DllName))
                     reply = new ServerUnrecognisedDllMessage {DllName = msg.DllName};
                 else
-                    reply = new ServerSupportMd5Message
+                    reply = new SupportDataVersionMessage
                                 {
                                     DllName = msg.DllName,
-                                    Md5 = _requestProcessors[msg.DllName].GetSupportingDataMd5(),
+                                    Version = _requestProcessors[msg.DllName].GetSupportingDataVersion(),
                                 };
             }
 
@@ -136,7 +134,7 @@ namespace DistributedServerDll.Jobs
         private void HandleGetLatestSupportDataRequest(IConnection con, Message data)
         {
             var msg = (ClientGetLatestSupportData)data;
-            Message reply = null;
+            Message reply;
 
             lock (this)
             {
@@ -146,7 +144,7 @@ namespace DistributedServerDll.Jobs
                     reply = new ServerSupportDataMessage
                                 {
                                     DllName = msg.DllName,
-                                    Md5 = _requestProcessors[msg.DllName].GetSupportingDataMd5(),
+                                    Version = _requestProcessors[msg.DllName].GetSupportingDataVersion(),
                                     Data = _requestProcessors[msg.DllName].GetSupportingData()
                                 };
             }

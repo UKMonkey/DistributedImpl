@@ -26,7 +26,7 @@ namespace DistributedShared.Network.Messages
                 target.Write(JobData[i].DllName);
                 target.Write(JobData[i].Data);
 
-                target.Write(JobData[i].SupportingDataMd5);
+                target.Write(JobData[i].SupportingDataVersion);
             }
         }
 
@@ -41,10 +41,10 @@ namespace DistributedShared.Network.Messages
                 var id = source.ReadLong();
                 var name = source.ReadString();
                 var data = source.ReadByteArray();
-                var md5 = source.ReadString();
+                var version = source.ReadLong();
 
-                JobData.Add(new JobData(id, data, name)
-                    {SupportingDataMd5 = md5});
+                JobData.Add(new JobData(id, data, name) 
+                    { SupportingDataVersion = version });
             }
         }
     }

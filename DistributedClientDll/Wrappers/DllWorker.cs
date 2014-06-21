@@ -9,7 +9,7 @@ namespace DistributedClientDll.Wrappers
 {
     public class DllWorker : IClientApi, IDisposable
     {
-        public String SupportingDataMd5 { get; private set; }
+        public long SupportingDataVersion { get; private set; }
 
         private readonly IDllApi _brain;
         private readonly ReaderWriterLock _workLock;
@@ -51,13 +51,13 @@ namespace DistributedClientDll.Wrappers
         }
 
 
-        public void SetSupportingData(byte[] data, string md5)
+        public void SetSupportingData(byte[] data, long version)
         {
             try
             {
                 _workLock.AcquireWriterLock(5000);
                 _brain.SupportingData = data;
-                SupportingDataMd5 = md5;
+                SupportingDataVersion = version;
             }
             finally
             {

@@ -15,10 +15,12 @@ namespace DistributedShared.SystemMonitor
     public class DllMonitor
     {
         public readonly String FolderToMonitor;
+        public readonly String DomainPrepend;
         protected readonly String FolderWithActive;
 
         private Thread _montoringThread;
         private volatile bool _performWork = true;
+        private readonly AppDomainSetup _domainInfo;
 
         private volatile bool _performDllLoads = true;
         public bool PerformDllLoads 
@@ -34,13 +36,16 @@ namespace DistributedShared.SystemMonitor
         public event DllCallback DllLoaded;
         public event DllCallback DllUnavailable;
 
-        public DllMonitor(String targetNewDirectory, String targetWorkingDirectory)
+        public DllMonitor(String targetNewDirectory, String targetWorkingDirectory, String domainPrepend)
         {
             FolderToMonitor = targetNewDirectory;
             FolderWithActive = targetWorkingDirectory;
 
             Directory.CreateDirectory(targetNewDirectory);
             Directory.CreateDirectory(targetWorkingDirectory);
+
+            DomainPrepend = domainPrepend;
+            _domainInfo = DomainConfiguration();
         }
 
 
@@ -124,10 +129,11 @@ namespace DistributedShared.SystemMonitor
                     return null;
 
                 var type = typeof(T);
-                var types = domain.GetAssemblies().
+                var typesMid = domain.GetAssemblies().
                     SelectMany(s => s.GetTypes()).
                     Where(p => p.IsClass).
-                    Where(type.IsAssignableFrom).ToList();
+                    Where(p => !p.FullName.StartsWith("System")).ToList();
+                var types = typesMid.Where(type.IsAssignableFrom).ToList();
 
                 if (types.Count == 0)
                     return null;
@@ -181,12 +187,17 @@ namespace DistributedShared.SystemMonitor
         }
 
 
+        private AppDomainSetup DomainConfiguration()
+        {
+            var domaininfo = new AppDomainSetup();
+            domaininfo.ApplicationBase = FolderWithActive;
+            return domaininfo;
+        }
+
+
         private AppDomain LoadDll(string fileName)
         {
-            AppDomainSetup domaininfo = new AppDomainSetup();
-            domaininfo.ApplicationBase = FolderWithActive;
-
-            var domain = AppDomain.CreateDomain(fileName);//, AppDomain.CurrentDomain.Evidence, domaininfo);
+            var domain = AppDomain.CreateDomain(DomainPrepend + fileName, AppDomain.CurrentDomain.Evidence, _domainInfo);
             var assemblyName = new AssemblyName { CodeBase = fileName };
 
             AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler((x, y) => ResolveHandler(fileName));

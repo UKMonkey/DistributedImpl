@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using DistributedShared.SystemMonitor;
 using DistributedShared.SystemMonitor.Managers;
@@ -32,7 +31,7 @@ namespace DistributedClientDll.Jobs
             _dllMonitor.DllUnloaded += HandleDllUnloaded;
 
             connection.RegisterMessageListener(typeof(ServerCancelWorkMessage), HandleCancelWorkMessage);
-            connection.RegisterMessageListener(typeof(ServerSupportMd5Message), HandleSupportingDataMd5Message);
+            connection.RegisterMessageListener(typeof(SupportDataVersionMessage), HandleSupportingDataVersionMessage);
             connection.RegisterMessageListener(typeof(ServerSupportDataMessage), HandleSupportingDataMessage);
 
             _requestedSupportData = new HashSet<string>();
@@ -52,7 +51,7 @@ namespace DistributedClientDll.Jobs
                 // we can only do this job if the supporting data md5 required matches
                 // the current supporting data md5
 
-                if (brain.SupportingDataMd5 != job.SupportingDataMd5)
+                if (brain.SupportingDataVersion != job.SupportingDataVersion)
                 {
                     if (_requestedSupportData.Contains(job.DllName))
                         return false;
@@ -109,6 +108,9 @@ namespace DistributedClientDll.Jobs
             {
                 var brain = _dllMonitor.GetNewTypeFromDll<IDllApi>(dllName);
 
+                if (brain == null)
+                    return;
+
                 _brains.Add(dllName, new DllWorker(brain));
                 brain.OnDllLoaded(_brains[dllName]);
             }
@@ -144,16 +146,16 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        private void HandleSupportingDataMd5Message(Message data)
+        private void HandleSupportingDataVersionMessage(Message data)
         {
-            var msg = (ServerSupportMd5Message) data;
+            var msg = (SupportDataVersionMessage) data;
             lock (this)
             {
                 if (!_brains.ContainsKey(msg.DllName))
                     return;
 
                 var brain = _brains[msg.DllName];
-                if (brain.SupportingDataMd5 == msg.Md5)
+                if (brain.SupportingDataVersion == msg.Version)
                     return;
             }
 
@@ -178,7 +180,7 @@ namespace DistributedClientDll.Jobs
                 brain = _brains[msg.DllName];
             }
 
-            brain.SetSupportingData(msg.Data, msg.Md5);
+            brain.SetSupportingData(msg.Data, msg.Version);
         }
     }
 }
