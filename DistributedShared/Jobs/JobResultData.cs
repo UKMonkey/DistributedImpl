@@ -7,7 +7,7 @@ namespace DistributedShared.Jobs
     {
         public string DllName { get; private set; }
         public long JobId { get; private set; }
-        public byte[] Data { get; private set; }
+        public byte[] Data { get; set; }
 
         public long CyclesSpentWorking { get; set; }
 

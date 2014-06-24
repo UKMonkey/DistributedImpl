@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DistributedShared.SystemMonitor;
 using DistributedSharedInterfaces.Messages;
+using DistributedShared.SystemMonitor.DllMonitoring;
 
 namespace DistributedShared.Network
 {
@@ -10,8 +11,6 @@ namespace DistributedShared.Network
 
     public class MessageManager
     {
-        private readonly DllMonitor _dllMonitor;
-
         private readonly Dictionary<String, Dictionary<short, Type>> _dllToMessageIdToMessage = new Dictionary<string, Dictionary<short, Type>>();
         private readonly Dictionary<String, Dictionary<Type, short>> _dllToMessageToMessageId = new Dictionary<string, Dictionary<Type, short>>();
 
@@ -28,25 +27,9 @@ namespace DistributedShared.Network
         public const short InvalidDllId = -1;
 
 
-        public MessageManager(DllMonitor dllMonitor)
+        public MessageManager()
         {
-            _dllMonitor = dllMonitor;
-
-            dllMonitor.DllLoaded += RecalculateMessageIds;
-            dllMonitor.DllUnloaded += RemoveMessageIds;
-
             CalculateBaseMessageIds(AppDomain.CurrentDomain, "");
-            var loadedDlls = dllMonitor.GetAvailableDlls();
-            var loadedDllNames = new List<String>();
-            lock (loadedDlls)
-            {
-                loadedDllNames.AddRange(loadedDlls);
-            }
-
-            foreach (var loadedDll in loadedDllNames)
-            {
-                RecalculateMessageIds(loadedDll);
-            }
         }
 
 

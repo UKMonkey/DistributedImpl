@@ -1,0 +1,96 @@
+High level view:
+The implementation offers a single class interface, which provides a program with the ability to start / stop
+the system as well as collect stats or get notified on various events.
+
+This interface should provide any program the ability to provide the user statistics, notifications,
+warnings, or any other information that is relevant to the operations, both as a server and client.
+
+The implementation is provided as a dll, allowing anyone to write their own program wrapping it.
+
+
+
+Mid level view:
+A program will load the required "DistributedClientDll" or "DistributedServerDll" as required.
+
+Once that dll is told to start work, it will start a number of threads to perform network and monitoring activity.
+
+There are 2 directories of specific interest, "current" and "new" dlls.  These are for what we will
+call plugin dlls.  These dlls provide the implementation for what jobs need to be done, how to do the jobs
+and how to do any post processing of that data (post processing should be very light weight!)
+
+When a dll is in the current directory, a new shared memory area is created and process using that spawned.
+This new process will be responsible for performing the jobs provided, or ensuring new jobs are available.
+It will not do any network activity unless the plugin does so.
+It will not to any disk access, unless the plugin does so.
+It will not spawn any processes or load any other dlls, unless the plugin does so.
+
+When a new dll is made available, the server will stop requesting new jobs from the existing one, but
+finish processing all previously requested jobs.  Once the jobs have been completed, it will kill the
+process that has that dll loaded, replace the dll, and restart the process.  The result is the abilty
+to have a system that is able to run continuously and have updates applied.
+Sadly, this is one of the features of a virus, and this could easily be used as one, for that reason 
+the next thing to examine is security.
+
+Server security:
+The server plugin dlls will be expected to do NO network work, start no extra threads or processes or access anything
+on the disk.  Doing so implies a poorly designed plugin that is getting the server to do work that it doesn't have time
+to do.  As such each process controlling a plugin dll will have threads dedicated to monitoring these
+and should anything unexpected happen the main process will be notified and the plugin process terminated.
+The plugin process will not be able to run again without being cleared to do so by the main program.
+
+Client security:
+The client plugin dll, in most cases, shouldn't do any network, disk or start other processes, but it might in some.
+To handle this, the client program is able to decide what permissions the dlls should have.
+By default, the same as the server, all security will be disabled.
+
+
+
+Low level view:
+There are a number of dlls and binaries required for the correct operation of the system.
+Let us examine each of these.
+
+INTERFACES:
+These projects provide information that may be of use to the plugin dll; or are expected to be implemented
+by each dll.
+They also offer interfaces that may be of used to the base program - ie the interface that presents 
+the features to the main program.
+Note that because only 1 dll is permitted for the server and client, they can not have a shared dll.
+If they wish to share code then it should be done in a way that does not involve producing an additionl dll.
+
+1.  DistrubutedSharedInterfaces
+Used for both client and server
+
+2.  DistributedClientInterfaces
+Interfaces that are used soley for the client
+
+3.  DistributedServerInterfaces
+Interfaces that are used soley for the server
+
+
+IMPLEMENTATIONS:
+These projects provide the guts of the system.  Exactly how they work shouldn't matter to the plugin dlls,
+They should just know that when they provide a job group, the job and the new status is recorded atomically.
+When a job is completed and sent to the server, the server will attempt to save the results as soon as possible
+so that the client is credited correctly with completing the job.  There is no guarentee in a server failure that
+clients will be credited with the work that they've done, but that doesn't mean we can't try to use what we can.
+
+The projects are split up as follows:
+
+1.  DistributedShared
+Library that is used for both client and server.  It is particularly important ALL messages go in here,
+even if they're used just for server to server communication as the design of the messaging system
+depends on all programs having all the messages available.
+
+2.  DistributedClientDll
+This dll is the one loaded by the client program.  It is responsible for monitoring the dll directory,
+and spawning / killing the plugin dll processes.
+
+3.  DistrbutedServerDll
+Similar to the client project.
+
+4.  DistributedClientWorker
+This binary loads the plugin dll and works with the shared memory made BEFORE its creation.  It operates
+continually until either told to die (within the shared memory) or a security exception forces it to terminate.
+
+5.  DistributedServerWorker
+Similar to the client project.
