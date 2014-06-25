@@ -1,16 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Security.Cryptography;
-using System.Threading;
-using DistributedShared.SystemMonitor.Managers;
 
 namespace DistributedShared.SystemMonitor.DllMonitoring
 {
     public delegate void DllCallback(string dllName);
+    public delegate void DllSecurityCallback(string dllName, StopReason issue);
 
     /************************************************************************/
     /* Note that this doesn't actually load any dlls, but generates a class */
@@ -20,39 +15,27 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
     /* implemented, it just monitors dlls and notifies them when to stop    */
     /* so that they can be replaced                                         */
     /************************************************************************/
-    public class DllMonitor<SharedMemoryType>
+    public class DllMonitor<SharedMemoryType> : DirectoryMonitor
         where SharedMemoryType : DllSharedMemory, new()
     {
-        public readonly String FolderToMonitor;
-        public readonly String DomainPrepend;
-        protected readonly String FolderWithActive;
-
-        private Thread _montoringThread;
-        private volatile bool _performWork = true;
-
-        private volatile bool _performDllLoads = true;
-        public bool PerformDllLoads 
-        {
-            get { return _performDllLoads; } set { _performDllLoads = value; } 
-        }
-
         private readonly String _exeName;
-        private readonly List<String> _availableDlls = new List<string>();
-        private readonly Dictionary<String, DllWrapper<SharedMemoryType>> _loadedDlls = new Dictionary<string, DllWrapper<SharedMemoryType>>();
-        private readonly Dictionary<String, String> _dllToMd5 = new Dictionary<string, string>(); 
+        private readonly String _sharedMemoryPath;
 
-        public event DllCallback DllUnloaded;
+        private readonly Dictionary<String, DllWrapper<SharedMemoryType>> _loadedDlls = new Dictionary<string, DllWrapper<SharedMemoryType>>();
+        private readonly HashSet<String> _dllsToRestart = new HashSet<string>();
+
+
         public event DllCallback DllLoaded;
         public event DllCallback DllUnavailable;
+        public event DllCallback DllDeleted;
+        public event DllSecurityCallback DllSecurityException;
 
-        public DllMonitor(String targetNewDirectory, String targetWorkingDirectory, String exeName)
+
+        public DllMonitor(String targetWorkingDirectory, String exeName, String sharedMemoryPath)
+            : base(targetWorkingDirectory, DllHelper.GetDllExtension())
         {
-            FolderToMonitor = targetNewDirectory;
-            FolderWithActive = targetWorkingDirectory;
             _exeName = exeName;
-
-            Directory.CreateDirectory(targetNewDirectory);
-            Directory.CreateDirectory(targetWorkingDirectory);
+            _sharedMemoryPath = sharedMemoryPath;
         }
 
 
@@ -60,12 +43,14 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// Gets a list of dll names that are currently wrapped.  Note that they may change immediately as this is not updated
         /// </summary>
         /// <returns></returns>
-        public List<String> GetAvailableDlls()
+        public HashSet<String> GetAvailableDlls()
         {
-            var ret = new List<String>();
-            lock (_loadedDlls)
+            HashSet<String> ret;
+            lock (this)
             {
-                ret.AddRange(_availableDlls);
+                ret = new HashSet<String>();
+                foreach (var item in _loadedDlls.Keys)
+                    ret.Add(item);
             }
             return ret;
         }
@@ -78,8 +63,8 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// <returns></returns>
         public virtual DllWrapper<SharedMemoryType> GetLoadedDll(string dll)
         {
-            DllWrapper<SharedMemoryType> ret = null;
-            lock (_loadedDlls)
+            DllWrapper<SharedMemoryType> ret;
+            lock (this)
             {
                 ret = _loadedDlls.ContainsKey(dll)
                     ? _loadedDlls[dll] : null;
@@ -91,200 +76,150 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
             return ret;
         }
 
-
         /// <summary>
-        /// Returns the MD5 of a specific dll
+        /// nicely kills the process with the loaded dll
+        /// it will finish any jobs that are left to do and tidy everything up.
         /// </summary>
         /// <param name="dllName"></param>
-        /// <returns></returns>
-        public String GetDllMd5(String dllName)
+        public void UnloadDll(string dllName)
         {
-            lock (_loadedDlls)
+            lock (this)
             {
-                if (_dllToMd5.ContainsKey(dllName))
-                    return _dllToMd5[dllName];
-                if (File.Exists(Path.Combine(FolderWithActive, dllName)))
-                    return CalculateMD5(Path.Combine(FolderWithActive, dllName));
-                return "";
-            } 
-        }
+                if (!_loadedDlls.ContainsKey(dllName))
+                    return;
 
-
-        /// <summary>
-        /// Starts monitoring files for changes
-        /// </summary>
-        public void StartMonitoring()
-        {
-            ExamineFolder(FolderWithActive);
-            _montoringThread = new Thread(MonitoringThreadMain);
-            _performWork = true;
-            StaticThreadManager.Instance.StartNewThread(_montoringThread, "DllMonitor");
-        }
-
-
-        /// <summary>
-        /// Stops the monitoring process
-        /// </summary>
-        public void StopMonitoring()
-        {
-            if (_montoringThread != null)
-            {
-                _performWork = false;
-                _montoringThread.Join();
-                _montoringThread = null;
+                _dllsToRestart.Remove(dllName);
+                var deadBin = _loadedDlls[dllName];
+                deadBin.StopExe();
             }
         }
 
 
         /// <summary>
-        /// Attempts to force load a dll, incase it hasn't been picked up already yet
+        /// kill the process without hesition.  Make it die, make it die now.
         /// </summary>
         /// <param name="dllName"></param>
-        public void UpdateSingleDll(string dllName)
+        public void ForceUnloadDll(string dllName)
         {
-            lock (_loadedDlls)
+            lock (this)
             {
-                var path = Path.Combine(FolderToMonitor, dllName);
-                if (File.Exists(path))
-                    LoadDll(path, true);
+                if (!_loadedDlls.ContainsKey(dllName))
+                    return;
+
+                _dllsToRestart.Remove(dllName);
+                var deadBin = _loadedDlls[dllName];
+                deadBin.ForceStopExe();
             }
         }
 
 
         /// <summary>
-        /// Generates the md5 of a file
+        /// Attempts to delete the given file; returns false if the file wsan't loaded
+        /// this will always trigger the DLLDeleted event at some point
         /// </summary>
-        /// <param name="filename"></param>
-        /// <returns></returns>
-        private string CalculateMD5(string filename)
-        {
-            using (var md5 = MD5.Create())
-            {
-                using (var stream = File.OpenRead(filename))
-                {
-                    return BitConverter.ToString(md5.ComputeHash(stream));
-                }
-            }
-        }
-
-
-        protected void UnloadDll(string dllName)
-        {
-            lock (_loadedDlls)
-            {
-                if (_loadedDlls.ContainsKey(dllName))
-                {
-                    if (DllUnloaded != null)
-                        DllUnloaded(dllName);
-
-                    var deadBin = _loadedDlls[dllName];
-                    deadBin.ForceStopExe();
-                }
-            }
-            GC.Collect();
-        }
-
-
+        /// <param name="dllName"></param>
         public void DeleteDll(string dllName)
         {
-            lock (_loadedDlls)
+            bool deleteFile = false;
+            lock (this)
             {
-                UnloadDll(dllName);
-                File.Delete(Path.Combine(FolderWithActive, dllName));
-            }
-        }
-
-
-        private AppDomainSetup DomainConfiguration()
-        {
-            var domaininfo = new AppDomainSetup();
-            domaininfo.ApplicationBase = FolderWithActive;
-            return domaininfo;
-        }
-
-
-        private AppDomain LoadDll(string fileName)
-        {
-            var domain = AppDomain.CreateDomain(DomainPrepend + fileName, AppDomain.CurrentDomain.Evidence, _domainInfo);
-            var assemblyName = new AssemblyName { CodeBase = fileName };
-
-            AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler((x, y) => ResolveHandler(fileName));
-
-            domain.Load(assemblyName);
-            return domain;
-        }
-
-
-        private void LoadDll(String file, bool move)
-        {
-            var fileName = file.Substring(file.LastIndexOf(Path.DirectorySeparatorChar) + 1);
-            UnloadDll(fileName);
-
-            if (move)
-            {
-                var newPath = Path.Combine(FolderWithActive, fileName);
-                File.Delete(newPath);
-                File.Move(file, newPath);
-                file = newPath;
-            }
-
-            if (PerformDllLoads)
-            {
-                _loadedDlls.Add(fileName, LoadDll(file));
-            }
-
-            _dllToMd5.Add(fileName, CalculateMD5(file));
-
-            lock (_availableDlls)
-            {
-                _availableDlls.Add(fileName);
-            }
-
-            if (DllLoaded != null)
-                DllLoaded(fileName);
-        }
-
-
-        //http://support.microsoft.com/kb/837908/en-us
-        //private Assembly ResolveHandler(object sender, ResolveEventArgs args)
-        private Assembly ResolveHandler(string dllName)
-        {
-            return Assembly.LoadFrom(dllName);
-        }
-
-
-        private void ExamineFolder(string folderToExamine)
-        {
-            var files = Directory.EnumerateFiles(folderToExamine, "*.dll");
-            var performMove = FolderWithActive != folderToExamine;
-
-            foreach (var file in files)
-            {
-                lock (_loadedDlls)
+                deleteFile = _loadedDlls.ContainsKey(dllName);
+                if (!deleteFile)
                 {
-                    LoadDll(file, performMove);
+                    var deadBin = _loadedDlls[dllName];
+                    if (deadBin.IsRunning())
+                    {
+                        deadBin.ProcessTerminatedGracefully += DeleteFile;
+                        deadBin.ProcessTerminatedUnexpectedly += DeleteFile;
+                        UnloadDll(dllName);
+                    }
+                    else
+                    {
+                        deleteFile = true;
+                    }
                 }
             }
+
+            if (deleteFile)
+                DeleteFile(dllName);
         }
 
 
-        private void MonitoringThreadMain()
+        /// <summary>
+        /// Deletes a given monitored file
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="move"></param>
+        private void DeleteFile(String dllName)
         {
-            while (_performWork)
+            lock (this)
             {
-                ExamineFolder(FolderToMonitor);
-                Thread.Sleep(1000);
+                File.Delete(Path.Combine(FolderToMonitor, dllName));
+                RegisterRemovedFile(dllName);
             }
+
+            DllDeleted(dllName);
         }
 
 
-        public byte[] GetDllContent(string dll)
+        /// <summary>
+        /// Cleans out the knowledge of the given file, ensuring that if it still exists
+        /// when the monitor next loops that the "ProcessFile" is called on it.
+        /// </summary>
+        /// <param name="fileName"></param>
+        protected override void RegisterRemovedFile(String fileName)
         {
-            lock (_loadedDlls)
+            base.RegisterRemovedFile(fileName);
+            _dllsToRestart.Remove(fileName);
+        }
+
+
+        /// <summary>
+        /// Called when a new file is found in the directory
+        /// </summary>
+        /// <param name="fullFileName"></param>
+        /// <param name="fileName"></param>
+        protected override void ProcessFile(String fullFileName, String fileName)
+        {
+            var wrapper = new DllWrapper<SharedMemoryType>(FolderToMonitor, _sharedMemoryPath, fileName);
+            wrapper.ProcessTerminatedUnexpectedly += RestartDllIfOk;
+
+            _loadedDlls.Add(fileName, wrapper);
+            _dllsToRestart.Add(fileName);
+
+            wrapper.StartExe(_exeName);
+
+            DllLoaded(fileName);
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void RestartDllIfOk(String dllName)
+        {
+            lock (this)
             {
-                var fullPath = Path.Combine(FolderWithActive, dll);
-                return File.ReadAllBytes(fullPath);
-            }
+                if (!_loadedDlls.ContainsKey(dllName))
+                    return;
+
+                var deadBin = _loadedDlls[dllName];
+                if (!_dllsToRestart.Contains(dllName))
+                    return;
+
+                switch (deadBin.SharedMemory.StopReason)
+                {
+                    case StopReason.FileSecurityException:
+                    case StopReason.ProcessSecurityException:
+                    case StopReason.PortSecurityException:
+                    case StopReason.ThreadHandleExecption:
+                        // by not regestering it as removed, the file will not get reloaded
+                        DllSecurityException(dllName, deadBin.SharedMemory.StopReason);
+                        return;
+                }
+
+                RegisterRemovedFile(dllName);
+            }            
         }
     }
 }

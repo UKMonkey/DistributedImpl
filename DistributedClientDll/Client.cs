@@ -8,17 +8,17 @@ using DistributedClientDll.SystemMonitor;
 using DistributedShared.SystemMonitor;
 using DistributedClientDll.Jobs;
 using DistributedClientInterfaces.Interfaces;
+using DistributedClientDll.SystemMonitor.DllMonitoring;
 
 namespace DistributedClientDll
 {
     public class Client : IDistributedClient
     {
         private ConnectionManager _connectionManager;
-        private DllMonitor _dllMonitor;
+        private ClientDllMonitor _dllMonitor;
 
         private DllProcessor _dllProcessor;
         private JobManager _jobManager;
-        private SelfMonitor _securityMonitor;
 
         private bool connected = false;
 
@@ -36,12 +36,11 @@ namespace DistributedClientDll
             {
                 Disconnect();
 
-                _dllMonitor = new DllMonitor(clientTargetNewDirectory, clientTargetWorkingDirectory, "client");
-                _connectionManager = new ConnectionManager(hostName, port, _dllMonitor);
+                _dllMonitor = new ClientDllMonitor(clientTargetNewDirectory, clientTargetWorkingDirectory, "client");
+                _connectionManager = new ConnectionManager(hostName, port);
                 _dllProcessor = new DllProcessor(_dllMonitor, _connectionManager);
 
                 _jobManager = new JobManager(_connectionManager, _dllMonitor);
-                _securityMonitor = new SelfMonitor(_connectionManager);
 
                 var success = _connectionManager.Connect(userName);
                 if (!success)
@@ -69,7 +68,6 @@ namespace DistributedClientDll
             _dllMonitor = null;
             _dllProcessor = null;
             _jobManager = null;
-            _securityMonitor = null;
 
             System.GC.Collect();
         }

@@ -9,12 +9,13 @@ using DistributedSharedInterfaces.Messages;
 using DistributedClientInterfaces.Interfaces;
 using DistributedClientDll.Networking;
 using DistributedClientDll.Wrappers;
+using DistributedClientDll.SystemMonitor.DllMonitoring;
 
 namespace DistributedClientDll.Jobs
 {
     public class JobWorker
     {
-        private readonly DllMonitor _dllMonitor;
+        private readonly ClientDllMonitor _dllMonitor;
         private readonly ConnectionManager _connection;
 
         private readonly Dictionary<string, DllWorker> _brains = new Dictionary<string, DllWorker>();
@@ -22,7 +23,7 @@ namespace DistributedClientDll.Jobs
         private readonly Dictionary<Thread, IJobData> _threadToJob = new Dictionary<Thread, IJobData>();
         private readonly HashSet<string> _requestedSupportData = new HashSet<string>();
 
-        public JobWorker(ConnectionManager connection, DllMonitor dllMonitor)
+        public JobWorker(ConnectionManager connection, ClientDllMonitor dllMonitor)
         {
             _dllMonitor = dllMonitor;
             _connection = connection;

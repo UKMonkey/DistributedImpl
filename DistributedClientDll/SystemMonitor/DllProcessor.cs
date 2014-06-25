@@ -5,6 +5,7 @@ using DistributedShared.Network.Messages;
 using DistributedShared.SystemMonitor;
 using DistributedSharedInterfaces.Messages;
 using DistributedClientDll.Networking;
+using DistributedClientDll.SystemMonitor.DllMonitoring;
 
 namespace DistributedClientDll.SystemMonitor
 {
@@ -12,10 +13,10 @@ namespace DistributedClientDll.SystemMonitor
     {
         private readonly HashSet<String> _requestedDlls = new HashSet<string>();
         private readonly ConnectionManager _connectionManager;
-        private readonly DllMonitor _dllMonitor;
+        private readonly ClientDllMonitor _dllMonitor;
 
 
-        public DllProcessor(DllMonitor dllMonitor, ConnectionManager connection)
+        public DllProcessor(ClientDllMonitor dllMonitor, ConnectionManager connection)
         {
             _connectionManager = connection;
             _connectionManager.RegisterMessageListener(typeof(ServerDllContentMessage), HandleDllContent);
@@ -62,7 +63,7 @@ namespace DistributedClientDll.SystemMonitor
             {
                 var dllName = msg.DllNames[i];
                 var md5 = msg.Md5Values[i];
-                var currentMd5 = _dllMonitor.GetDllMd5(dllName);
+                var currentMd5 = _dllMonitor.GetFileMd5(dllName);
 
                 if (currentMd5 == md5)
                     return;

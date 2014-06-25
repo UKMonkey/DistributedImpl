@@ -20,8 +20,6 @@ namespace DistributedClientDll.Jobs
         private volatile bool _doWork;
         private readonly AutoResetEvent _jobsAvailable = new AutoResetEvent(false);
 
-        public event Action NewJobsAvailable;
-
         public JobPool(short minJobCount, ConnectionManager connection)
         {
             _minJobCount = minJobCount;
@@ -42,34 +40,19 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        public void FillPool()
+        public IJobData GetNextJob()
         {
-            if (_worker.ThreadState != ThreadState.Unstarted)
-                return;
-            
-            lock (_jobPool)
-            {
-                if (_worker.ThreadState == ThreadState.Unstarted)
-                    StaticThreadManager.Instance.StartNewThread(_worker, "JobPoolMonitor");
-            }
-        }
-
-
-        public IJobData GetNextJob(bool wait)
-        {
-            FillPool();
             while (true)
             {
                 lock (_jobPool)
                 {
+                    if (_worker.ThreadState == ThreadState.Unstarted)
+                        StaticThreadManager.Instance.StartNewThread(_worker, "JobPoolMonitor");
                     if (_jobPool.Count > 0)
                         return _jobPool.Dequeue();
                 }
 
-                if (wait)
-                    _jobsAvailable.WaitOne();
-                else
-                    return null;
+                _jobsAvailable.WaitOne();
             }
         }
 
@@ -106,8 +89,6 @@ namespace DistributedClientDll.Jobs
 
             _awaitingNewJobs = false;
             _jobsAvailable.Set();
-
-            NewJobsAvailable();
         }
 
 

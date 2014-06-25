@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using DistributedClientInterfaces.Interfaces;
-using System.Data.SQLite;
 using DistributedSharedInterfaces.Jobs;
 using DistributedClientDll.SystemMonitor;
 
@@ -70,12 +69,6 @@ namespace DistributedClientDll.Wrappers
         public void Dispose()
         {
             _brain.Dispose();
-        }
-
-
-        public SQLiteConnection GetSQInterface()
-        {
-            return null;
         }
     }
 }

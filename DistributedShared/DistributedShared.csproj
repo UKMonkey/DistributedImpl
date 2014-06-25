@@ -88,8 +88,10 @@
     <Compile Include="Stream\StreamWriterExtensions.cs" />
     <Compile Include="Stream\StreamReaderExtensions.cs" />
     <Compile Include="SystemMonitor\DllHelper.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DirectoryMonitor.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllMonitor.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllSharedMemory.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllUpdater.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllWrapper.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\Lock.cs" />
     <Compile Include="SystemMonitor\HandleMonitoring\PortHandleDetector.cs" />

@@ -3,27 +3,42 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using DistributedClientDll.Networking;
+using DistributedShared.Network.Messages;
 using DistributedShared.SystemMonitor;
 using System.Threading;
 using DistributedShared.SystemMonitor.Managers;
+using DistributedClientDll.SystemMonitor.DllMonitoring;
+using DistributedSharedInterfaces.Jobs;
+using DistributedShared.Network.Messages;
 
 namespace DistributedClientDll.Jobs
 {
+    /************************************************************************/
+    /* This class is responsible for acting as a middle man between the     */
+    /* job pool, which ensures that we have a certain number of jobs        */
+    /* available to process, and the binaries that process the jobs.        */
+    /* since the binaries have no understanding about each other or their   */
+    /* existence, they are expected to do the jobs as and when they are     */
+    /* given to them;  leaving this middle man class being the master       */
+    /* of who is processing which job and how many; ie it can establish     */
+    /* the ideal number of jobs to be run simultaniously and the other      */
+    /* binaries will never know if they are being throttled because of      */
+    /* CPU issues, bandwidth issues or anything else.                       */
+    /************************************************************************/
     public class JobManager : IDisposable
     {
-        private readonly JobPool _jobPool;
-        private readonly JobWorker _jobWorker;
+        private readonly JobPool _jobPool;              // keeps a number of jobs available in the cache
+        private readonly ClientDllMonitor _dllMonitor;  // provides us access to the loaded dlls and their shared memory
+
         private readonly ConnectionManager _connection;
-        private readonly DllMonitor _dllMonitor;
+        private int JobsInProcess = 0;
 
-        private volatile bool _replaceDeadThreads;
-        private readonly Thread _montiorThread;
-        private readonly Dictionary<Thread, bool> _workerToKeepRunning;
-        
-        public int NumberOfWorkers { get; private set; }
+        private volatile int _numberOfWorkers;
+        public int NumberOfWorkers { get { return _numberOfWorkers; } set { _numberOfWorkers = value; } }
 
+        private volatile bool _doWork = true;
 
-        public JobManager(ConnectionManager connection, DllMonitor dllMonitor)
+        public JobManager(ConnectionManager connection, ClientDllMonitor dllMonitor)
         {
             _connection = connection;
             _dllMonitor = dllMonitor;
@@ -31,131 +46,65 @@ namespace DistributedClientDll.Jobs
 
             NumberOfWorkers = Environment.ProcessorCount;
             _jobPool = new JobPool((short)(NumberOfWorkers+2), _connection);
-            _jobWorker = new JobWorker(_connection, dllMonitor);
 
-            _montiorThread = new Thread(MonitorMain);
-            _replaceDeadThreads = false;
-            StaticThreadManager.Instance.StartNewThread(_montiorThread, "JobThreadManager");
+            // when there's new jobs available, make sure that we've got all the threads going
+            _jobPool.NewJobsAvailable += QueueNewJobs;
+
+            // when a job is complete, make sure we've got all the threads going
+            _dllMonitor.DllLoaded += RegisterJobCompletedEvents;
         }
 
 
         public void Dispose()
         {
             StopDoingJobs();
-            _montiorThread.Abort();
-            _montiorThread.Join();
+            _jobPool.Dispose();
         }
 
 
-        public void UpdateNumberOfWorkers(int newNumber)
+        private void QueueNewJobs()
         {
             lock (this)
             {
-                var change = newNumber - NumberOfWorkers;
-                NumberOfWorkers = newNumber;
-                while (change > 0)
-                {
-                    AddNewWorkerThread();
-                    change--;
-                }
+                JobsInProcess--;
+                if (JobsInProcess >= _numberOfWorkers)
+                    return;
 
-                while (change < 0)
-                {
-                    RemoveWorkerThread();
-                    change++;
-                }
+                var nextJob = _jobPool.GetNextJob(false);
+                if (nextJob != null)
+                    QueueJob(nextJob);
             }
         }
 
 
-        private void RemoveWorkerThread()
+        private void QueueJob(IJobData data)
         {
-            if (_workerToKeepRunning.Count == 0)
+            var dll = _dllMonitor.GetLoadedDll(data.DllName);
+            if (dll == null)
                 return;
-            
-            var thread = _workerToKeepRunning.First().Key;
-            _workerToKeepRunning[thread] = false;
+
+            dll.SharedMemory.AddJobData(data);
         }
 
 
-        private void AddNewWorkerThread()
-        {
-            var thread = new Thread(WorkerMain);
-            _workerToKeepRunning.Add(thread, true);
-            StaticThreadManager.Instance.StartNewThread(thread, "JobWorker");
-        }
-
-
-        public void StartDoingJobs()
+        private void SendJobResults(ClientSharedMemory item)
         {
             lock (this)
             {
-                _replaceDeadThreads = true;
-            }
-        }
-
-
-        public void StopDoingJobs(bool waitForCompletion=false)
-        {
-            List<Thread> threads;
-            lock (this)
-            {
-                _replaceDeadThreads = false;
-                threads = _workerToKeepRunning.Keys.ToList();
-                foreach (var thread in threads)
-                    _workerToKeepRunning[thread] = false;
-            }
-
-            if (waitForCompletion)
-            {
-                foreach (var thread in threads)
-                    thread.Join();
-            }
-        }
-
-
-        public void ForceStopDoingJobs()
-        {
-            List<Thread> threads;
-            lock (this)
-            {
-                _replaceDeadThreads = false;
-                threads = _workerToKeepRunning.Keys.ToList();
-                foreach (var thread in threads)
-                    thread.Abort();
-            }
-
-            foreach (var thread in threads)
-                thread.Join();
-        }
-
-
-        private void MonitorMain()
-        {
-            while (true)
-            {
-                Thread.Sleep(100);
-                lock (this)
+                var result = item.GetCompletedData();
+                while (result != null)
                 {
-                    if (!_replaceDeadThreads)
-                        continue;
-
-                    while (_workerToKeepRunning.Count < NumberOfWorkers)
-                        AddNewWorkerThread();
+                    var msg = new ClientJobComplete();
                 }
             }
         }
 
 
-        private void WorkerMain()
+        private void RegisterJobCompletedEvents(string dllName)
         {
-            var doWork = true;
-            while (doWork)
-            {
-                var job = _jobPool.GetNextJob();
-                if (!_jobWorker.ProcessJob(job))
-                    _jobPool.ReturnJobToPool(job);
-            }
+            var dll = _dllMonitor.GetLoadedDll(dllName);
+            dll.SharedMemory.JobCompleted += x => QueueNewJobs();
+            dll.SharedMemory.JobCompleted += SendJobResults;
         }
     }
 }

@@ -36,7 +36,7 @@ namespace DistributedServerDll.SystemMonitor
             var msg = new ServerDllMd5Message();
             lock (_dllClientMonitor)
             {
-                _dllClientMonitor.UpdateSingleDll(dll);
+                _dllClientMonitor.ForceUpdateDll(dll);
                 msg.DllNames.Add(dll);
                 msg.Md5Values.Add(_dllClientMonitor.GetDllMd5(dll));
             }

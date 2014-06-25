@@ -33,14 +33,14 @@ namespace DistributedClientDll.Networking
         private ServerLoginResult _loginReply = null;
         
 
-        public ConnectionManager(string hostname, int port, DllMonitor dllMonitor)
+        public ConnectionManager(string hostname, int port)
         {
             _client = new TcpClient();
             _performWork = true;
 
             _hostname = hostname;
             _port = port;
-            _messageManager = new MessageManager(dllMonitor);
+            _messageManager = new MessageManager();
             MessageStatistics = new MessageStatistics(_messageManager);
         }
 

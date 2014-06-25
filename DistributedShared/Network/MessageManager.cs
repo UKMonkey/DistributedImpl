@@ -157,7 +157,6 @@ namespace DistributedShared.Network
                 Where(type.IsAssignableFrom).ToList();
 
             types.Sort((x, y) => x.Name.CompareTo(y.Name));
-            RemoveMessageIds(dllName);
 
             lock (this)
             {
@@ -182,39 +181,6 @@ namespace DistributedShared.Network
                     _messageToDllId.Add(types[i], dllId);
                     if (NewMessageAvailable != null)
                         NewMessageAvailable(types[i]);
-                }
-            }
-        }
-
-
-        private void RecalculateMessageIds(String dllName)
-        {
-            var assembly = _dllMonitor.GetLoadedDll(dllName);
-            if (assembly == null)
-                RemoveMessageIds(dllName);
-            else
-                CalculateBaseMessageIds(assembly, dllName);
-        }
-
-
-        private void RemoveMessageIds(String dllName)
-        {
-            lock (this)
-            {
-                _dllToMessageIdToMessage.Remove(dllName);
-                _dllToMessageToMessageId.Remove(dllName);
-
-                if (!_dllToDllId.ContainsKey(dllName))
-                    return;
-
-                var id = _dllToDllId[dllName];
-
-                _dllToDllId.Remove(dllName);
-                _dllIdToDll.Remove(id);
-
-                foreach (var item in _messageToDllId.Where(kvp => kvp.Value == id).ToList())
-                {
-                    _messageToDllId.Remove(item.Key);
                 }
             }
         }

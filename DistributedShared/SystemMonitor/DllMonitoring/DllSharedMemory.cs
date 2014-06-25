@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.IO.MemoryMappedFiles;
 using System.Threading;
 using System.IO;
-using System.Runtime.InteropServices;
 using DistributedSharedInterfaces.Serialisation;
 
 namespace DistributedShared.SystemMonitor.DllMonitoring
@@ -15,7 +12,12 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
     public enum StopReason : short
     {
-        Requested
+        Unknown = 0,
+        Requested,
+        FileSecurityException,      // process opened a file
+        ProcessSecurityException,   // process started another process
+        PortSecurityException,      // process opened a port
+        ThreadHandleExecption,      // process started a thread
     }
 
 
@@ -63,8 +65,11 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
         // TODO - throw if trying to set the DLL name or shared memory path if we've
         // already connected to the shared memory
+        // TODO - requre these 2 to be set before running
         public String DllName { get; set; }
         public String SharedMemoryPath { get; set; }
+
+
         public String SharedMemoryFile { get; private set; }
         public StopReason StopReason { get; private set; }
         public bool StopRequested { get; private set; }
@@ -75,6 +80,9 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
         private MemoryMappedFile _file;
         private Mutex _fileProtectionMutex;
+
+        // TODO - have the thread wait for an event rather than poll the file!
+        //private EventWaitHandle _dataWritten;
         private int _id;
 
 
@@ -208,6 +216,12 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
                 return true;
             }
+        }
+
+
+        public void ForceReloadOfProtectedData()
+        {
+            ReloadProtectedData(this);
         }
 
 

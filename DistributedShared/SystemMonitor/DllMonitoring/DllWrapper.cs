@@ -41,7 +41,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         }
 
 
-        private void StartExe(String exeName)
+        public void StartExe(String exeName)
         {
             if (_process != null)
                 throw new ArgumentException("Exe had already been started");
@@ -59,14 +59,30 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         }
 
 
-        public void ForceStopExe()
+        public bool IsRunning()
+        {
+            return !_process.HasExited;
+        }
+
+
+        public void StopExe()
         {
             SharedMemory.RequestStop(StopReason.Requested);
         }
 
 
+        public void ForceStopExe()
+        {
+            _process.Kill();
+        }
+
+
         private void ProcessTerminated(object sender, EventArgs e)
         {
+            // make sure that the stop reason is up to date - just incase
+            // there was a security exception and we mustn't restart
+            SharedMemory.ForceReloadOfProtectedData();
+
             if (SharedMemory.StopRequested)
                 ProcessTerminatedGracefully(DllName);
             else

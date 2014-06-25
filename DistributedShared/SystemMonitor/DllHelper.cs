@@ -9,6 +9,19 @@ namespace DistributedShared.SystemMonitor
 {
     public class DllHelper
     {
+        public static String GetDllExtension()
+        {
+            switch (Environment.OSVersion.Platform)
+            {
+                case PlatformID.Unix:
+                case PlatformID.MacOSX:
+                    return ".so";
+                default:
+                    return ".dll";
+            }
+        }
+
+
         public T GetNewTypeFromDll<T>(Assembly assm)
             where T : class
         {
