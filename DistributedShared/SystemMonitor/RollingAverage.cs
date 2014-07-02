@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Diagnostics;
 
 namespace DistributedShared.SystemMonitor
@@ -53,9 +51,7 @@ namespace DistributedShared.SystemMonitor
                 points = _points.ToList();
             }
 
-            double sum = 0;
-            foreach (var value in points.Select(item => item.Value))
-                sum += value;
+            double sum = points.Select(item => item.Value).Sum();
 
             sum /= _timeOfAverage;
             return sum;

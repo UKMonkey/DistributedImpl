@@ -1,21 +1,14 @@
 ﻿using System;
-using System.EnterpriseServices;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
-using System.Security.Permissions;
 using System.Text;
 using System.Threading;
-using Microsoft.Win32.SafeHandles;
-using System.Diagnostics;
 
-using DistributedShared.SystemMonitor.HandleMonitoring;
 using NT_STATUS = DistributedShared.SystemMonitor.HandleMonitoring.NativeMethods.NT_STATUS;
 using SafeProcessHandle = DistributedShared.SystemMonitor.HandleMonitoring.NativeMethods.SafeProcessHandle;
 using SafeObjectHandle = DistributedShared.SystemMonitor.HandleMonitoring.NativeMethods.SafeObjectHandle;
-using SYSTEM_INFORMATION_CLASS = DistributedShared.SystemMonitor.HandleMonitoring.NativeMethods.SYSTEM_INFORMATION_CLASS;
 using OBJECT_INFORMATION_CLASS = DistributedShared.SystemMonitor.HandleMonitoring.NativeMethods.OBJECT_INFORMATION_CLASS;
 using SYSTEM_HANDLE_ENTRY = DistributedShared.SystemMonitor.HandleMonitoring.NativeMethods.SYSTEM_HANDLE_ENTRY;
 using ProcessAccessRights = DistributedShared.SystemMonitor.HandleMonitoring.NativeMethods.ProcessAccessRights;
@@ -26,17 +19,17 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
 {
     public class FileHandleProcessor
     {
-        private static Dictionary<string, string> deviceMap;
-        private const string networkDevicePrefix = "\\Device\\LanmanRedirector\\";
+        private static Dictionary<string, string> _deviceMap;
+        private const string NetworkDevicePrefix = "\\Device\\LanmanRedirector\\";
 
-        private const int MAX_PATH = 260;
+        private const int MaxPath = 260;
 
 
         public static OpenHandle GetFileHandleInformation(IntPtr handle, SYSTEM_HANDLE_ENTRY handleEntry)
         {
             string devicePath;
             if (!GetFileNameFromHandle(handle, handleEntry.OwnerPid, out devicePath))
-                return new OpenHandle(OpenHandle.HandleType.FILE);
+                return new OpenHandle(OpenHandle.HandleType.File);
 
             string dosPath;
             if (ConvertDevicePathToDosPath(devicePath, out dosPath))
@@ -45,19 +38,19 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
                 {
                     return new OpenHandle(new FileInfo(dosPath));
                 }
-                else if (Directory.Exists(dosPath))
+                if (Directory.Exists(dosPath))
                 {
                     return new OpenHandle(new DirectoryInfo(dosPath));
                 }
             }
-            return new OpenHandle(OpenHandle.HandleType.FILE);
+            return new OpenHandle(OpenHandle.HandleType.File);
         }
 
 
         private static bool GetFileNameFromHandle(IntPtr handle, int processId, out string fileName)
         {
-            IntPtr currentProcess = NativeMethods.GetCurrentProcess();
-            bool remote = (processId != NativeMethods.GetProcessId(currentProcess));
+            var currentProcess = NativeMethods.GetCurrentProcess();
+            var remote = (processId != NativeMethods.GetProcessId(currentProcess));
             SafeProcessHandle processHandle = null;
             SafeObjectHandle objectHandle = null;
             try
@@ -89,24 +82,22 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
         }
         private static bool GetFileNameFromHandle(IntPtr handle, out string fileName, int wait)
         {
-            FileNameFromHandleState f = new FileNameFromHandleState(handle);
+            var f = new FileNameFromHandleState(handle);
             ThreadPool.QueueUserWorkItem(new WaitCallback(GetFileNameFromHandle), f);
             if (f.WaitOne(wait))
             {
                 fileName = f.FileName;
                 return f.RetValue;
             }
-            else
-            {
-                fileName = string.Empty;
-                return false;
-            }
+
+            fileName = string.Empty;
+            return false;
         }
 
         private class FileNameFromHandleState
         {
-            private ManualResetEvent _mr;
-            private IntPtr _handle;
+            private readonly ManualResetEvent _mr;
+            private readonly IntPtr _handle;
 
             public IntPtr Handle
             {
@@ -122,7 +113,7 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
             public FileNameFromHandleState(IntPtr handle)
             {
                 _mr = new ManualResetEvent(false);
-                this._handle = handle;
+                _handle = handle;
             }
 
             public bool WaitOne(int wait)
@@ -138,7 +129,7 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
 
         private static void GetFileNameFromHandle(object state)
         {
-            FileNameFromHandleState s = (FileNameFromHandleState)state;
+            var s = (FileNameFromHandleState)state;
             string fileName;
             s.RetValue = GetFileNameFromHandle(s.Handle, out fileName);
             s.FileName = fileName;
@@ -201,7 +192,7 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
             while (i > 0 && (i = devicePath.LastIndexOf('\\', i - 1)) != -1)
             {
                 string drive;
-                if (deviceMap.TryGetValue(devicePath.Substring(0, i), out drive))
+                if (_deviceMap.TryGetValue(devicePath.Substring(0, i), out drive))
                 {
                     dosPath = string.Concat(drive, devicePath.Substring(i));
                     return dosPath.Length != 0;
@@ -214,10 +205,10 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
 
         private static void EnsureDeviceMap()
         {
-            if (deviceMap == null)
+            if (_deviceMap == null)
             {
                 Dictionary<string, string> localDeviceMap = BuildDeviceMap();
-                Interlocked.CompareExchange<Dictionary<string, string>>(ref deviceMap, localDeviceMap, null);
+                Interlocked.CompareExchange<Dictionary<string, string>>(ref _deviceMap, localDeviceMap, null);
             }
         }
 
@@ -225,25 +216,25 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
         private static Dictionary<string, string> BuildDeviceMap()
         {
             string[] logicalDrives = Environment.GetLogicalDrives();
-            Dictionary<string, string> localDeviceMap = new Dictionary<string, string>(logicalDrives.Length);
-            StringBuilder lpTargetPath = new StringBuilder(MAX_PATH);
+            var localDeviceMap = new Dictionary<string, string>(logicalDrives.Length);
+            var lpTargetPath = new StringBuilder(MaxPath);
             foreach (string drive in logicalDrives)
             {
                 string lpDeviceName = drive.Substring(0, 2);
-                NativeMethods.QueryDosDevice(lpDeviceName, lpTargetPath, MAX_PATH);
+                NativeMethods.QueryDosDevice(lpDeviceName, lpTargetPath, MaxPath);
                 localDeviceMap.Add(NormalizeDeviceName(lpTargetPath.ToString()), lpDeviceName);
             }
-            localDeviceMap.Add(networkDevicePrefix.Substring(0, networkDevicePrefix.Length - 1), "\\");
+            localDeviceMap.Add(NetworkDevicePrefix.Substring(0, NetworkDevicePrefix.Length - 1), "\\");
             return localDeviceMap;
         }
 
 
         private static string NormalizeDeviceName(string deviceName)
         {
-            if (string.Compare(deviceName, 0, networkDevicePrefix, 0, networkDevicePrefix.Length, StringComparison.InvariantCulture) == 0)
+            if (string.Compare(deviceName, 0, NetworkDevicePrefix, 0, NetworkDevicePrefix.Length, StringComparison.InvariantCulture) == 0)
             {
-                string shareName = deviceName.Substring(deviceName.IndexOf('\\', networkDevicePrefix.Length) + 1);
-                return string.Concat(networkDevicePrefix, shareName);
+                string shareName = deviceName.Substring(deviceName.IndexOf('\\', NetworkDevicePrefix.Length) + 1);
+                return string.Concat(NetworkDevicePrefix, shareName);
             }
             return deviceName;
         }

@@ -19,11 +19,11 @@ namespace DistributedShared.Network.Messages
         protected override void Serialise(IMessageInputStream target)
         {
             target.Write(JobResults.Count);
-            for (var i = 0; i < JobResults.Count; ++i)
+            foreach (var t in JobResults)
             {
-                target.Write(JobResults[i].JobId);
-                target.Write(JobResults[i].DllName);
-                target.Write(JobResults[i].Data);
+                target.Write(t.JobId);
+                target.Write(t.DllName);
+                target.Write(t.Data);
             }
         }
 

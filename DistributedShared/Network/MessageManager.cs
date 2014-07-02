@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using DistributedShared.SystemMonitor;
 using DistributedSharedInterfaces.Messages;
-using DistributedShared.SystemMonitor.DllMonitoring;
+using System.Reflection;
 
 namespace DistributedShared.Network
 {
@@ -151,12 +150,13 @@ namespace DistributedShared.Network
         private void CalculateBaseMessageIds(AppDomain domain, string dllName)
         {
             var type = typeof(Message);
+
             var types = domain.GetAssemblies().
                 SelectMany(s => s.GetTypes()).
                 Where(p => p.IsClass).
                 Where(type.IsAssignableFrom).ToList();
 
-            types.Sort((x, y) => x.Name.CompareTo(y.Name));
+            types.Sort((x, y) => String.CompareOrdinal(x.Name, y.Name));
 
             lock (this)
             {

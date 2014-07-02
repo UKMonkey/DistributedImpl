@@ -1,15 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using DistributedClientDll.Networking;
 using DistributedShared.Network.Messages;
-using DistributedShared.SystemMonitor;
-using System.Threading;
-using DistributedShared.SystemMonitor.Managers;
 using DistributedClientDll.SystemMonitor.DllMonitoring;
 using DistributedSharedInterfaces.Jobs;
-using DistributedShared.Network.Messages;
 
 namespace DistributedClientDll.Jobs
 {
@@ -21,7 +15,7 @@ namespace DistributedClientDll.Jobs
     /* existence, they are expected to do the jobs as and when they are     */
     /* given to them;  leaving this middle man class being the master       */
     /* of who is processing which job and how many; ie it can establish     */
-    /* the ideal number of jobs to be run simultaniously and the other      */
+    /* the ideal number of jobs to be run simultaneously and the other      */
     /* binaries will never know if they are being throttled because of      */
     /* CPU issues, bandwidth issues or anything else.                       */
     /************************************************************************/
@@ -31,27 +25,31 @@ namespace DistributedClientDll.Jobs
         private readonly ClientDllMonitor _dllMonitor;  // provides us access to the loaded dlls and their shared memory
 
         private readonly ConnectionManager _connection;
-        private int JobsInProcess = 0;
+        private volatile int _jobsInProcess;
 
         private volatile int _numberOfWorkers;
-        public int NumberOfWorkers { get { return _numberOfWorkers; } set { _numberOfWorkers = value; } }
+        public int TargetNumberOfWorkers { get { return _numberOfWorkers; } set { _numberOfWorkers = value; } }
 
         private volatile bool _doWork = true;
 
         public JobManager(ConnectionManager connection, ClientDllMonitor dllMonitor)
         {
+            _jobsInProcess = 0;
             _connection = connection;
             _dllMonitor = dllMonitor;
-            _workerToKeepRunning = new Dictionary<Thread, bool>();
 
-            NumberOfWorkers = Environment.ProcessorCount;
-            _jobPool = new JobPool((short)(NumberOfWorkers+2), _connection);
+            TargetNumberOfWorkers = Environment.ProcessorCount;
+            _jobPool = new JobPool((short)(TargetNumberOfWorkers * 2), _connection);
 
             // when there's new jobs available, make sure that we've got all the threads going
             _jobPool.NewJobsAvailable += QueueNewJobs;
 
             // when a job is complete, make sure we've got all the threads going
             _dllMonitor.DllLoaded += RegisterJobCompletedEvents;
+
+            // start downloading the jobs, there's no point delaying, after all we assume that the connection
+            // has been fully completed for this class to be created
+            _jobPool.FillPool();
         }
 
 
@@ -62,39 +60,82 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        private void QueueNewJobs()
+        public void StopDoingJobs()
         {
             lock (this)
             {
-                JobsInProcess--;
-                if (JobsInProcess >= _numberOfWorkers)
-                    return;
-
-                var nextJob = _jobPool.GetNextJob(false);
-                if (nextJob != null)
-                    QueueJob(nextJob);
+                _doWork = false;
             }
         }
 
 
-        private void QueueJob(IJobData data)
+        public void StartDoingJobs()
         {
-            var dll = _dllMonitor.GetLoadedDll(data.DllName);
-            if (dll == null)
-                return;
-
-            dll.SharedMemory.AddJobData(data);
+            _doWork = true;
+            QueueNewJobs();
         }
 
 
-        private void SendJobResults(ClientSharedMemory item)
+        private void QueueNewJobs()
         {
             lock (this)
             {
-                var result = item.GetCompletedData();
-                while (result != null)
+                if (_doWork == false)
+                    return;
+
+                var failed = new List<IJobData>();
+                while (_jobsInProcess < TargetNumberOfWorkers)
                 {
-                    var msg = new ClientJobComplete();
+                    var nextJob = _jobPool.GetNextJob(false);
+                    if (nextJob != null)
+                    {
+                        var success = QueueJob(nextJob);
+                        if (!success)
+                            failed.Add(nextJob);
+                    }
+                }
+
+                foreach (var job in failed)
+                {
+                    _jobPool.ReturnJobToPool(job);
+                }
+            }
+        }
+
+
+        private bool QueueJob(IJobData data)
+        {
+            var dll = _dllMonitor.GetLoadedDll(data.DllName);
+            if (dll == null || !dll.IsRunning())
+                return false;
+
+            _jobsInProcess++;
+            dll.SharedMemory.AddJobData(data);
+            return true;
+        }
+
+
+        private void SendJobResults(IJobResultData result)
+        {
+            var msg = new ClientJobComplete();
+            msg.JobResults.Add(result);
+
+            _connection.SendMessage(msg);
+        }
+
+
+        private void ForceUpdateWorkerCount()
+        {
+            lock (this)
+            {
+                _numberOfWorkers = 0;
+                foreach (var dllName in _dllMonitor.GetAvailableDlls())
+                {
+                    var dll = _dllMonitor.GetLoadedDll(dllName);
+                    if (dll == null)
+                        continue;
+
+                    _numberOfWorkers += dll.SharedMemory.GetCurrentWorkerCount();
                 }
             }
         }
@@ -103,8 +144,12 @@ namespace DistributedClientDll.Jobs
         private void RegisterJobCompletedEvents(string dllName)
         {
             var dll = _dllMonitor.GetLoadedDll(dllName);
+
             dll.SharedMemory.JobCompleted += x => QueueNewJobs();
             dll.SharedMemory.JobCompleted += SendJobResults;
+
+            dll.ProcessTerminatedGracefully += p => ForceUpdateWorkerCount();
+            dll.ProcessTerminatedUnexpectedly += p => ForceUpdateWorkerCount();
         }
     }
 }

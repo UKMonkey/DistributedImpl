@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Threading;
 using DistributedShared.SystemMonitor.Managers;
 
 namespace DistributedShared.SystemMonitor.DllMonitoring
 {
+    public delegate void FilenameCallback(string name);
+
     /************************************************************************/
     /* Monitors a directory, and when a file is found, an action is         */
     /* performed on that file.  That action for this class is nothing       */
@@ -24,14 +25,15 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         private Thread _montoringThread;
         private volatile bool _performWork = true;
 
-        private readonly String _extensionToMonitor;
-        private readonly Dictionary<String, String> _fileToMd5 = new Dictionary<string, string>(); 
+        protected readonly String ExtensionToMonitor;
+        private readonly Dictionary<String, String> _fileToMd5 = new Dictionary<string, string>();
+        private readonly HashSet<String> _filesProcessed = new HashSet<String>();
 
 
         public DirectoryMonitor(String targetDirectory, String extensionToMonitor)
         {
             FolderToMonitor = targetDirectory;
-            _extensionToMonitor = extensionToMonitor;
+            ExtensionToMonitor = extensionToMonitor;
 
             Directory.CreateDirectory(targetDirectory);
         }
@@ -45,7 +47,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         {
             _montoringThread = new Thread(MonitoringThreadMain);
             _performWork = true;
-            StaticThreadManager.Instance.StartNewThread(_montoringThread, "DllMonitor");
+            StaticThreadManager.Instance.StartNewThread(_montoringThread, "DirectoryMonitor - " + FolderToMonitor);
         }
 
 
@@ -60,6 +62,15 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
                 _montoringThread.Join();
                 _montoringThread = null;
             }
+        }
+
+
+        public virtual void DeleteFile(string fileName)
+        {
+            var fullName = Path.Combine(FolderToMonitor, fileName);
+            File.Delete(fullName);
+
+            RegisterRemovedFile(fileName);
         }
 
 
@@ -80,6 +91,8 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// <param name="fileName"></param>
         protected virtual void RegisterRemovedFile(String fileName)
         {
+            Console.WriteLine("Removed file from cache: " + Path.Combine(FolderToMonitor, fileName));
+            _filesProcessed.Remove(fileName);
             _fileToMd5.Remove(fileName);
         }
 
@@ -90,7 +103,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// <param name="folderToExamine"></param>
         private void ExamineFolder(string folderToExamine)
         {
-            var files = Directory.EnumerateFiles(folderToExamine, _extensionToMonitor);
+            var files = Directory.EnumerateFiles(folderToExamine, "*" + ExtensionToMonitor).ToList();
             var processedFiles = new HashSet<String>();
 
             lock (this)
@@ -98,12 +111,15 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
                 foreach (var file in files)
                 {
                     var fileName = Path.GetFileName(file);
+                    Debug.Assert(fileName != null, "fileName != null");
+
                     processedFiles.Add(fileName);
 
-                    if (!_fileToMd5.ContainsKey(file))
+                    if (!_fileToMd5.ContainsKey(fileName))
                     {
-                        ProcessFile(file, fileName);
+                        Console.WriteLine("New file located: " + file);
                         _fileToMd5.Add(fileName, CalculateMD5(file));
+                        ProcessFile(file, fileName);
                     }
                 }
 
@@ -132,9 +148,9 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// Returns the file contents of a dll.  Suitable for sending a file over the network
         /// This function performs caching if required - so callers of this function should NOT
         /// </summary>
-        /// <param name="dll"></param>
+        /// <param name="file"></param>
         /// <returns></returns>
-        public byte[] GetFileContentContent(string file)
+        public byte[] GetFileContent(string file)
         {
             lock (this)
             {
@@ -144,10 +160,16 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         }
 
 
+        protected void ForceClearMd5(string fileName)
+        {
+            _fileToMd5.Remove(fileName);
+        }
+
+
         /// <summary>
         /// Returns the MD5 of a specific dll
         /// </summary>
-        /// <param name="dllName"></param>
+        /// <param name="fileName"></param>
         /// <returns></returns>
         public String GetFileMd5(String fileName)
         {
@@ -155,8 +177,12 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
             {
                 if (_fileToMd5.ContainsKey(fileName))
                     return _fileToMd5[fileName];
+
                 if (File.Exists(Path.Combine(FolderToMonitor, fileName)))
-                    return CalculateMD5(Path.Combine(FolderToMonitor, fileName));
+                {
+                    _fileToMd5[fileName] = CalculateMD5(fileName);
+                    return _fileToMd5[fileName];
+                }
                 return "";
             }
         }
@@ -165,10 +191,11 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// <summary>
         /// Generates the md5 of a file
         /// </summary>
-        /// <param name="filename"></param>
+        /// <param name="file"></param>
         /// <returns></returns>
-        private string CalculateMD5(string filename)
+        protected virtual string CalculateMD5(string file)
         {
+            string filename = Path.Combine(FolderToMonitor, file);
             using (var md5 = MD5.Create())
             {
                 using (var stream = File.OpenRead(filename))

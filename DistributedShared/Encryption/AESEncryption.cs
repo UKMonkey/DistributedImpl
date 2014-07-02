@@ -26,7 +26,7 @@ namespace DistributedShared.Encryption
             if (string.IsNullOrEmpty(sharedSecret))
                 throw new ArgumentNullException("sharedSecret");
 
-            string outStr = null;                       // Encrypted string to return
+            string outStr;                              // Encrypted string to return
             RijndaelManaged aesAlg = null;              // RijndaelManaged object used to encrypt the data.
 
             try
@@ -89,7 +89,7 @@ namespace DistributedShared.Encryption
 
             // Declare the string used to hold
             // the decrypted text.
-            string plaintext = null;
+            string plaintext;
 
             try
             {
@@ -108,9 +108,9 @@ namespace DistributedShared.Encryption
                     aesAlg.IV = ReadByteArray(msDecrypt);
                     // Create a decrytor to perform the stream transform.
                     ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-                    using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                    using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
                     {
-                        using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                        using (var srDecrypt = new StreamReader(csDecrypt))
 
                             // Read the decrypted bytes from the decrypting stream
                             // and place them in a string.

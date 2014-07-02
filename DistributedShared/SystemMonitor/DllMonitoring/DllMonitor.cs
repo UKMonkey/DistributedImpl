@@ -4,7 +4,6 @@ using System.IO;
 
 namespace DistributedShared.SystemMonitor.DllMonitoring
 {
-    public delegate void DllCallback(string dllName);
     public delegate void DllSecurityCallback(string dllName, StopReason issue);
 
     /************************************************************************/
@@ -15,27 +14,29 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
     /* implemented, it just monitors dlls and notifies them when to stop    */
     /* so that they can be replaced                                         */
     /************************************************************************/
-    public class DllMonitor<SharedMemoryType> : DirectoryMonitor
-        where SharedMemoryType : DllSharedMemory, new()
+    public class DllMonitor<TSharedMemoryType> : DirectoryMonitor
+        where TSharedMemoryType : DllCommunication
     {
-        private readonly String _exeName;
-        private readonly String _sharedMemoryPath;
+        public delegate TSharedMemoryType GetSharedMemoryDelegate();
 
-        private readonly Dictionary<String, DllWrapper<SharedMemoryType>> _loadedDlls = new Dictionary<string, DllWrapper<SharedMemoryType>>();
+        private readonly GetSharedMemoryDelegate _getSharedMemory;
+        private readonly String _exeName;
+
+        private readonly Dictionary<String, DllWrapper<TSharedMemoryType>> _loadedDlls = new Dictionary<string, DllWrapper<TSharedMemoryType>>();
         private readonly HashSet<String> _dllsToRestart = new HashSet<string>();
 
 
-        public event DllCallback DllLoaded;
-        public event DllCallback DllUnavailable;
-        public event DllCallback DllDeleted;
+        public event FilenameCallback DllLoaded;
+        public event FilenameCallback DllUnavailable;
+        public event FilenameCallback DllDeleted;
         public event DllSecurityCallback DllSecurityException;
 
 
-        public DllMonitor(String targetWorkingDirectory, String exeName, String sharedMemoryPath)
+        public DllMonitor(String targetWorkingDirectory, String exeName, GetSharedMemoryDelegate sharedMemory)
             : base(targetWorkingDirectory, DllHelper.GetDllExtension())
         {
             _exeName = exeName;
-            _sharedMemoryPath = sharedMemoryPath;
+            _getSharedMemory = sharedMemory;
         }
 
 
@@ -61,9 +62,9 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// </summary>
         /// <param name="dll"></param>
         /// <returns></returns>
-        public virtual DllWrapper<SharedMemoryType> GetLoadedDll(string dll)
+        public virtual DllWrapper<TSharedMemoryType> GetLoadedDll(string dll)
         {
-            DllWrapper<SharedMemoryType> ret;
+            DllWrapper<TSharedMemoryType> ret;
             lock (this)
             {
                 ret = _loadedDlls.ContainsKey(dll)
@@ -90,6 +91,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
                 _dllsToRestart.Remove(dllName);
                 var deadBin = _loadedDlls[dllName];
+                _loadedDlls.Remove(dllName);
                 deadBin.StopExe();
             }
         }
@@ -108,6 +110,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
                 _dllsToRestart.Remove(dllName);
                 var deadBin = _loadedDlls[dllName];
+                _loadedDlls.Remove(dllName);
                 deadBin.ForceStopExe();
             }
         }
@@ -118,39 +121,37 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// this will always trigger the DLLDeleted event at some point
         /// </summary>
         /// <param name="dllName"></param>
-        public void DeleteDll(string dllName)
+        public override void DeleteFile(string dllName)
         {
             bool deleteFile = false;
             lock (this)
             {
-                deleteFile = _loadedDlls.ContainsKey(dllName);
-                if (!deleteFile)
+                if (_loadedDlls.ContainsKey(dllName))
                 {
                     var deadBin = _loadedDlls[dllName];
                     if (deadBin.IsRunning())
                     {
-                        deadBin.ProcessTerminatedGracefully += DeleteFile;
-                        deadBin.ProcessTerminatedUnexpectedly += DeleteFile;
+                        deadBin.ProcessTerminatedGracefully += DeleteFileNow;
+                        deadBin.ProcessTerminatedUnexpectedly += DeleteFileNow;
                         UnloadDll(dllName);
                     }
-                    else
-                    {
-                        deleteFile = true;
-                    }
+                }
+                else
+                {
+                    deleteFile = true;
                 }
             }
 
             if (deleteFile)
-                DeleteFile(dllName);
+                DeleteFileNow(dllName);
         }
 
 
         /// <summary>
         /// Deletes a given monitored file
         /// </summary>
-        /// <param name="file"></param>
-        /// <param name="move"></param>
-        private void DeleteFile(String dllName)
+        /// <param name="dllName"></param>
+        private void DeleteFileNow(String dllName)
         {
             lock (this)
             {
@@ -170,6 +171,11 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         protected override void RegisterRemovedFile(String fileName)
         {
             base.RegisterRemovedFile(fileName);
+            if (_loadedDlls.ContainsKey(fileName))
+            {
+                _loadedDlls[fileName].Dispose();
+                _loadedDlls.Remove(fileName);
+            }
             _dllsToRestart.Remove(fileName);
         }
 
@@ -181,7 +187,8 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// <param name="fileName"></param>
         protected override void ProcessFile(String fullFileName, String fileName)
         {
-            var wrapper = new DllWrapper<SharedMemoryType>(FolderToMonitor, _sharedMemoryPath, fileName);
+            var item = _getSharedMemory();
+            var wrapper = new DllWrapper<TSharedMemoryType>(FolderToMonitor, fileName, item);
             wrapper.ProcessTerminatedUnexpectedly += RestartDllIfOk;
 
             _loadedDlls.Add(fileName, wrapper);

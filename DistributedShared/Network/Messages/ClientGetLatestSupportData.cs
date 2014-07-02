@@ -1,5 +1,4 @@
-﻿using System;
-using DistributedShared.Stream;
+﻿using DistributedShared.Stream;
 using DistributedSharedInterfaces.Messages;
 
 namespace DistributedShared.Network.Messages

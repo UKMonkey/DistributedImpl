@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using DistributedShared.SystemMonitor;
-using DistributedShared.Network;
 using System.Threading;
 using DistributedSharedInterfaces.Messages;
 
@@ -20,7 +17,7 @@ namespace DistributedShared.Network
         private readonly Dictionary<Type, RollingAverage> _averageSentMessageSize = new Dictionary<Type, RollingAverage>();
         private readonly Dictionary<Type, RollingAverage> _averageReceivedMessageSize = new Dictionary<Type, RollingAverage>();
 
-        private static int _msecRollingTime = 1000;
+        private const int MsecRollingTime = 1000;
 
         private readonly MessageManager _msgManager;
         private readonly ReaderWriterLock _newTypeLock;
@@ -94,11 +91,11 @@ namespace DistributedShared.Network
                 _totalSentMessages.Add(msgType, 0);
                 _totalReceivedMessages.Add(msgType, 0);
 
-                _averageReceivedMessages.Add(msgType, new RollingAverage(_msecRollingTime));
-                _averageReceivedMessageSize.Add(msgType, new RollingAverage(_msecRollingTime));
+                _averageReceivedMessages.Add(msgType, new RollingAverage(MsecRollingTime));
+                _averageReceivedMessageSize.Add(msgType, new RollingAverage(MsecRollingTime));
 
-                _averageSentMessages.Add(msgType, new RollingAverage(_msecRollingTime));
-                _averageSentMessageSize.Add(msgType, new RollingAverage(_msecRollingTime));
+                _averageSentMessages.Add(msgType, new RollingAverage(MsecRollingTime));
+                _averageSentMessageSize.Add(msgType, new RollingAverage(MsecRollingTime));
             }
             finally
             {

@@ -118,6 +118,8 @@ namespace DistributedServerDll.Persistance
             _fileName = saveDirectory + Path.DirectorySeparatorChar + dllName + ".s3db";
             var fileExists = File.Exists(_fileName);
 
+            Directory.CreateDirectory(saveDirectory);
+
             _connectionString = "Data Source=" + _fileName + "; Version=3;";
             _connection = new SQLiteConnection(_connectionString);
             _connection.Open();

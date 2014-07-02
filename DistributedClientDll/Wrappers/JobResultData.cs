@@ -9,10 +9,5 @@ namespace DistributedClientDll.Wrappers
         public byte[] Data { get; set; }
         public long CyclesSpentWorking { get; set; }
         public bool CyclesSpentWorkingIsReliable { get; set; }
-
-
-        public JobResultData()
-        {
-        }
     }
 }

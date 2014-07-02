@@ -33,14 +33,6 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Data.SQLite, Version=1.0.80.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\DistributedInterfaces\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Data.SQLite.Linq, Version=1.0.80.0, Culture=neutral, PublicKeyToken=db937bc2d44ff139, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\DistributedInterfaces\packages\System.Data.SQLite.1.0.90.0\lib\net40\System.Data.SQLite.Linq.dll</HintPath>
-    </Reference>
     <Reference Include="System.EnterpriseServices" />
     <Reference Include="System.Management" />
     <Reference Include="System.Xml.Linq" />
@@ -89,11 +81,16 @@
     <Compile Include="Stream\StreamReaderExtensions.cs" />
     <Compile Include="SystemMonitor\DllHelper.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DirectoryMonitor.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\DllMessage.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\InputStream.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\Messages\ClientStopMessage.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\Messages\ServerRequestStopMessage.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\OutputStream.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllMonitor.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllSharedMemory.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllCommunication.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllUpdater.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllWrapper.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\Lock.cs" />
+    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\ClientDllCommunication.cs" />
     <Compile Include="SystemMonitor\HandleMonitoring\PortHandleDetector.cs" />
     <Compile Include="SystemMonitor\HandleMonitoring\FileHandleProcessor.cs" />
     <Compile Include="SystemMonitor\HandleMonitoring\NativeMethods.cs" />

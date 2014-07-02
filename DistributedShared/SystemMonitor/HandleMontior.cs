@@ -26,6 +26,8 @@ namespace DistributedShared.SystemMonitor
         public event NetworkCallback NetworkConnection;
         public event ProcessCallback ProcessCreated;
 
+        private volatile bool _doWork;
+
         private HashSet<string> _filesAccessed = new HashSet<string>();
         private HashSet<int> _threadIds = new HashSet<int>();
         private HashSet<int> _processIds = new HashSet<int>();
@@ -42,6 +44,7 @@ namespace DistributedShared.SystemMonitor
         {
             _monitorThread = new Thread(MonitorThreadMain);
             StaticThreadManager.Instance.StartNewThread(_monitorThread, "MonitorThread");
+            _doWork = true;
 
             DoWork();
         }
@@ -49,6 +52,8 @@ namespace DistributedShared.SystemMonitor
 
         public void Dispose()
         {
+            _doWork = false;
+
             _monitorThread.Abort();
             _monitorThread.Join();
         }
@@ -71,8 +76,6 @@ namespace DistributedShared.SystemMonitor
             var usedPorts = new HashSet<string>();
 
             var openHandles = GetOpenHandles().ToList();
-            var threads = openHandles.Where(item => item.Thread != null).ToList();
-
 
             foreach (var handle in openHandles)
             {
@@ -113,7 +116,7 @@ namespace DistributedShared.SystemMonitor
 
         private void MonitorThreadMain()
         {
-            while (true)
+            while (_doWork)
             {
                 DoWork();
                 Thread.Sleep(100);

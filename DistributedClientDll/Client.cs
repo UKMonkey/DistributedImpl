@@ -1,30 +1,37 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading;
-using DistributedSharedInterfaces.Jobs;
 using DistributedClientDll.Networking;
 using DistributedClientDll.SystemMonitor;
-using DistributedShared.SystemMonitor;
 using DistributedClientDll.Jobs;
 using DistributedClientInterfaces.Interfaces;
 using DistributedClientDll.SystemMonitor.DllMonitoring;
+using DistributedShared.Network;
+using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
 
 namespace DistributedClientDll
 {
     public class Client : IDistributedClient
     {
+        private readonly MessageManager _messageManager;
+
         private ConnectionManager _connectionManager;
         private ClientDllMonitor _dllMonitor;
 
         private DllProcessor _dllProcessor;
         private JobManager _jobManager;
 
-        private bool connected = false;
+        private bool _connected;
 
 
         public Client()
         {
+            _connected = false;
+            _messageManager = new MessageManager();
+        }
+
+
+        private ClientDllCommunication GetSharedMemory()
+        {
+            return new ClientDllCommunication(_messageManager);
         }
 
 
@@ -36,8 +43,8 @@ namespace DistributedClientDll
             {
                 Disconnect();
 
-                _dllMonitor = new ClientDllMonitor(clientTargetNewDirectory, clientTargetWorkingDirectory, "client");
-                _connectionManager = new ConnectionManager(hostName, port);
+                _dllMonitor = new ClientDllMonitor(clientTargetNewDirectory, clientTargetWorkingDirectory, GetSharedMemory);
+                _connectionManager = new ConnectionManager(hostName, port, _messageManager);
                 _dllProcessor = new DllProcessor(_dllMonitor, _connectionManager);
 
                 _jobManager = new JobManager(_connectionManager, _dllMonitor);
@@ -46,7 +53,7 @@ namespace DistributedClientDll
                 if (!success)
                     return false;
 
-                connected = true;
+                _connected = true;
 
                 _dllMonitor.StartMonitoring();
                 _jobManager.StartDoingJobs();
@@ -58,9 +65,9 @@ namespace DistributedClientDll
 
         public void Disconnect()
         {
-            if (!connected)
+            if (!_connected)
                 return;
-            connected = false;
+            _connected = false;
 
                 // garbage collector can clean up once we've set these to null
                 // not particularly clean, but will do for now
@@ -69,7 +76,7 @@ namespace DistributedClientDll
             _dllProcessor = null;
             _jobManager = null;
 
-            System.GC.Collect();
+            GC.Collect();
         }
     }
 }

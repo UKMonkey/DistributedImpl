@@ -5,12 +5,10 @@ using DistributedServerDll.Persistance;
 using DistributedServerInterfaces.Interfaces;
 using System.Data.SQLite;
 using System.Threading;
-using DistributedServerInterfaces.Networking;
-using System.Security.Cryptography;
-using System.IO;
 using DistributedShared.SystemMonitor.Managers;
 using DistributedSharedInterfaces.Jobs;
-using DistributedShared.Jobs;
+using DistributedShared.SystemMonitor.DllMonitoring;
+using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction;
 
 namespace DistributedServerDll.Jobs
 {
@@ -20,31 +18,36 @@ namespace DistributedServerDll.Jobs
 
         private volatile bool _provideJobs = true;
         private volatile bool _doWork = true;
-        private long _currentSupportingDataVersion = 0;
+        private long _currentSupportingDataVersion;
+        private bool _awaitingJobs;
 
-        private readonly IDllApi _brain;
+        private readonly DllWrapper<HostDllCommunication> _brain;
         private readonly Queue<IJobGroup> _queuedJobGroups = new Queue<IJobGroup>();
         private readonly Thread _jobQueueMaintainer;
-        private readonly IConnectionManager _conectionManager;
         private readonly DllJobGroupStore _jobStore;
 
         private readonly AutoResetEvent _jobsRequestedEvent;
 
-        public RequestProcessor(string dllName, IDllApi jobBrain, IConnectionManager conectionManager)
+        public RequestProcessor(string dllName, DllWrapper<HostDllCommunication> jobBrain, string storePath)
         {
+            _currentSupportingDataVersion = 0;
+            _awaitingJobs = false;
+
             DllName = dllName;
             _brain = jobBrain;
 
-            _brain.SupportingDataChanged += IncreaseSupportingDataVersion;
+            _brain.SharedMemory.SupportingDataChanged += UpdateSupportingDataVersion;
+            _brain.SharedMemory.JobGroupAvailable += p => ResetWaitingFlag();
+            _brain.SharedMemory.JobGroupAvailable += QueueNewJobs;
+
             _jobQueueMaintainer = new Thread(JobQueueMaintainerMain);
-            _conectionManager = conectionManager;
             _jobsRequestedEvent = new AutoResetEvent(true);
 
-            _jobStore = new DllJobGroupStore(@"c:\stuff", dllName);
+            _jobStore = new DllJobGroupStore(storePath, dllName);
             var status = _jobStore.GetStoredStatus();
 
             if (status.Length != 0)
-                jobBrain.StatusData = status;
+                jobBrain.SharedMemory.StatusData = status;
             _currentSupportingDataVersion = _jobStore.GetStoredSupportingDataVersion();
 
             StaticThreadManager.Instance.StartNewThread(_jobQueueMaintainer, "JobQueueMonitor");
@@ -55,6 +58,12 @@ namespace DistributedServerDll.Jobs
         {
             StopAllJobs();
             _brain.Dispose();
+        }
+
+
+        private void ResetWaitingFlag()
+        {
+            _awaitingJobs = false;
         }
 
 
@@ -82,7 +91,7 @@ namespace DistributedServerDll.Jobs
         {
             lock (this)
             {
-                _brain.DataProvided(jobResult);
+                _brain.SharedMemory.DataProvided(jobResult);
             }
         }
 
@@ -127,41 +136,23 @@ namespace DistributedServerDll.Jobs
 
         public byte[] GetSupportingData()
         {
-            return _brain.SupportingData;
+            return _brain.SharedMemory.SupportingData;
         }
 
-        /*
-        private void RecalculateSupportingMd5(IDllApi item)
-        {
-            // don't let any more jobs get added or processed until we've resolved this new supporting data MD5
-            // we then also want to update all the existing jobs to have the latest MD5
-            lock (this)
-            {
-                using (var md5 = MD5.Create())
-                {
-                    using (var stream = new MemoryStream(item.SupportingData))
-                    {
-                        _supportingDataMd5 = BitConverter.ToString(md5.ComputeHash(stream));
-                    }
-                }
-            }
-        }
-        */
 
-        private void QueueNewJobs()
+        private void QueueNewJobs(IJobGroup group)
         {
-            var jobs = _brain.GetNextJobGroup(100);
             lock (_queuedJobGroups)
             {
-                _queuedJobGroups.Enqueue(jobs);
-                jobs.SupportingDataVersion = _currentSupportingDataVersion;
+                _queuedJobGroups.Enqueue(group);
+                group.SupportingDataVersion = _currentSupportingDataVersion;
             }
         }
 
 
-        private void IncreaseSupportingDataVersion(IDllApi dll)
+        private void UpdateSupportingDataVersion(long version)
         {
-            _currentSupportingDataVersion += 1;
+            _currentSupportingDataVersion = version;
         }
 
 
@@ -171,6 +162,8 @@ namespace DistributedServerDll.Jobs
             {
                 _jobsRequestedEvent.WaitOne(500);
                 var queueNewJobs = false;
+                if (_awaitingJobs)
+                    continue;
 
                 lock (this)
                 {
@@ -179,7 +172,10 @@ namespace DistributedServerDll.Jobs
                 }
 
                 if (queueNewJobs)
-                    QueueNewJobs();
+                {
+                    _awaitingJobs = true;
+                    _brain.SharedMemory.GetNextJobGroup(100);
+                }
             }
         }
     }

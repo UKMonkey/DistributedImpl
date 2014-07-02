@@ -1,17 +1,20 @@
 ﻿using System;
 using DistributedServerDll.Jobs;
-using DistributedServerDll.SystemMonitor;
 using DistributedServerInterfaces.Networking;
 using DistributedServerDll.Networking;
-using DistributedShared.SystemMonitor;
 using DistributedShared.Network;
 using DistributedServerInterfaces.Interfaces;
+using DistributedServerDll.SystemMonitor.DllMonitoring;
+using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
+using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction;
 
 namespace DistributedServerDll
 {
     public class Server : IDistributedServer
     {
-        private DllMonitor _dllMonitor;
+        private ServerDllMonitor _dllMonitor;
+        private ServerDirectoryMonitor _serverDllMonitor;
+
         private DllManager _dataManager;
         private IConnectionManager _connectionManager;
         private MessageManager _messageManager;
@@ -23,27 +26,39 @@ namespace DistributedServerDll
 
         public Server()
         {
+            _messageManager = new MessageManager();
+        }
+
+
+        private HostDllCommunication GetSharedMemory()
+        {
+            return new HostDllCommunication(_messageManager);
         }
 
 
         public void StartListening(String serverTargetNewDirectory, String serverTargetWorkingDirectory,
                     String clientTargetNewDirectory, String clientTargetWorkingDirectory,
+                    String storePath,
                     int port)
         {
             if (_listening)
                 return;
 
-            _dllMonitor = new DllMonitor(serverTargetNewDirectory, serverTargetWorkingDirectory, "server");
-            _messageManager = new MessageManager(_dllMonitor);
+            _listening = true;
+
+            _dllMonitor = new ServerDllMonitor(serverTargetWorkingDirectory, @"ServerDllWrapper.exe", GetSharedMemory);
+            _serverDllMonitor = new ServerDirectoryMonitor(serverTargetNewDirectory, _dllMonitor, serverTargetWorkingDirectory);
+            
             _connectionManager = new ConnectionManager(_messageManager);
 
             _dataManager = new DllManager(_dllMonitor, _connectionManager,
                 clientTargetNewDirectory, clientTargetWorkingDirectory);
 
-            _jobManager = new JobManager(_dllMonitor, _connectionManager);
+            _jobManager = new JobManager(_dllMonitor, _connectionManager, storePath);
             _netSecurityManager = new ClientSecurityManager(_connectionManager);
 
             _dllMonitor.StartMonitoring();
+            _serverDllMonitor.StartMonitoring();
             _connectionManager.ListenForConections(port);
         }
 
@@ -58,7 +73,7 @@ namespace DistributedServerDll
             _jobManager = null;
             _netSecurityManager = null;
 
-            System.GC.Collect();
+            GC.Collect();
         }
     }
 }

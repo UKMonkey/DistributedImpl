@@ -70,7 +70,7 @@ namespace DistributedServerDll.Networking
                     {
                         HandleSocketData(item);
                     }
-                    catch (System.Exception)
+                    catch (Exception)
                     {
                         item.Socket.Close();
                         clientsToRemove.Add(item);
@@ -109,10 +109,9 @@ namespace DistributedServerDll.Networking
 
             lock (_messageCallbackHandlers)
             {
-                if (_messageCallbackHandlers.ContainsKey(msg.GetType()))
-                    callbacks = _messageCallbackHandlers[msg.GetType()];
-                else
-                    callbacks = new List<MessageCallback>();
+                callbacks = _messageCallbackHandlers.ContainsKey(msg.GetType())
+                    ? _messageCallbackHandlers[msg.GetType()] :
+                      new List<MessageCallback>();
             }
 
             MessageStatistics.MessageReceived(msg);
@@ -137,7 +136,7 @@ namespace DistributedServerDll.Networking
 
         private void MonitorClientsMain()
         {
-            while (true)
+            while (_performListening)
             {
                 lock (_connections)
                 {
@@ -192,7 +191,7 @@ namespace DistributedServerDll.Networking
                 }
                 catch (Exception)
                 {
-                	// any issues sending data should be ignored as the only reason that this would happen
+                    // any issues sending data should be ignored as the only reason that this would happen
                     // is if the connection has been closed
                     // and there's already a thread that will deal with closed connections.
                     // thread abort exceptions will be re-thrown automatically after this so we can still force terminate

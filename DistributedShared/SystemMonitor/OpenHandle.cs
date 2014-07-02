@@ -10,11 +10,11 @@ namespace DistributedShared.SystemMonitor
     {
         public enum HandleType
         {
-            PORT,
-            FILE,
-            DIRECTORY,
-            PROCESS,
-            THREAD
+            Port,
+            File,
+            Directory,
+            Process,
+            Thread
         }
 
         public enum ConnectionType
@@ -73,31 +73,31 @@ namespace DistributedShared.SystemMonitor
         public OpenHandle(FileInfo info)
         {
             FileInfo = info;
-            Type = HandleType.FILE;
+            Type = HandleType.File;
         }
 
         public OpenHandle(DirectoryInfo info)
         {
             DirectoryInfo = info;
-            Type = HandleType.DIRECTORY;
+            Type = HandleType.Directory;
         }
 
         public OpenHandle(Process info)
         {
             Process = info;
-            Type = HandleType.PROCESS;
+            Type = HandleType.Process;
         }
 
         public OpenHandle(ProcessThread info)
         {
             Thread = info;
-            Type = HandleType.THREAD;
+            Type = HandleType.Thread;
         }
 
         public OpenHandle(PortInfo info)
         {
             Port = info;
-            Type = HandleType.PORT;
+            Type = HandleType.Port;
         }
     }
 }

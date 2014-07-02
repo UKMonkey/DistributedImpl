@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using DistributedShared.Network.Messages;
-using DistributedShared.SystemMonitor;
 using DistributedSharedInterfaces.Messages;
 using DistributedClientDll.Networking;
 using DistributedClientDll.SystemMonitor.DllMonitoring;
@@ -68,7 +67,7 @@ namespace DistributedClientDll.SystemMonitor
                 if (currentMd5 == md5)
                     return;
 
-                _dllMonitor.DeleteDll(dllName);
+                _dllMonitor.DeleteFile(dllName);
                 _connectionManager.SendMessage(new ClientDllRequestMessage { DllName = dllName });
             }
         }
@@ -77,7 +76,7 @@ namespace DistributedClientDll.SystemMonitor
         private void HandleUnknownDll(Message data)
         {
             var msg = (ServerUnrecognisedDllMessage)data;
-            _dllMonitor.DeleteDll(msg.DllName);
+            _dllMonitor.DeleteFile(msg.DllName);
         }
     }
 }

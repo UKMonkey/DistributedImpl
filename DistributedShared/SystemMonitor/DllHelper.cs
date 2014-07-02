@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Reflection;
 using System.Diagnostics;
 
@@ -22,13 +20,19 @@ namespace DistributedShared.SystemMonitor
         }
 
 
-        public T GetNewTypeFromDll<T>(Assembly assm)
+        public static Assembly LoadDll(String path)
+        {
+            return Assembly.LoadFile(path);
+        }
+
+
+        public static T GetNewTypeFromDll<T>(Assembly assm)
             where T : class
         {
             var type = typeof(T);
             var typesMid = assm.GetTypes().
                 Where(p => p.IsClass).
-                Where(p => !p.FullName.StartsWith("System")).ToList();
+                Where(p => p.FullName != null && !p.FullName.StartsWith("System")).ToList();
             var types = typesMid.Where(type.IsAssignableFrom).ToList();
 
             if (types.Count == 0)

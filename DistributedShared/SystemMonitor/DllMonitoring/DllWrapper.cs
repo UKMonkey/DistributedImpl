@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.IO.MemoryMappedFiles;
 using System.IO;
-using System.Threading;
-using System.Runtime.InteropServices;
 using System.Diagnostics;
 
 namespace DistributedShared.SystemMonitor.DllMonitoring
@@ -13,31 +7,32 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
     public delegate void LoadedDllCallback(String dllName);
 
     public class DllWrapper<T> : IDisposable
-        where T : DllSharedMemory, new()
+        where T : DllCommunication
     {
         public readonly T SharedMemory;
         private Process _process;
 
         public String DllName { get { return SharedMemory.DllName; } }
-        private readonly String DllPath;
+        private readonly String _dllPath;
 
         // callback when the process died
         public event LoadedDllCallback ProcessTerminatedGracefully;
         public event LoadedDllCallback ProcessTerminatedUnexpectedly;
 
 
-        public DllWrapper(String dllPath, String memoryPath, string dllName)
+        public DllWrapper(String dllPath, string dllName, T sharedMemory)
         {
-            SharedMemory = new T() { DllName = dllName, SharedMemoryPath = memoryPath };
-            DllPath = dllPath;
+            SharedMemory = sharedMemory;
+            sharedMemory.DllName = dllName;
 
-            SharedMemory.Connect(true);
+            _dllPath = dllPath;
         }
 
 
         public void Dispose()
         {
             ForceStopExe();
+            SharedMemory.Dispose();
         }
 
 
@@ -46,16 +41,27 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
             if (_process != null)
                 throw new ArgumentException("Exe had already been started");
 
-            _process = new Process();
+            try
+            {
+                _process = new Process();
 
-            // Configure the process using the StartInfo properties.
-            _process.StartInfo.FileName = exeName;
-            _process.StartInfo.Arguments = Path.Combine(DllPath, DllName) + " " + SharedMemory.SharedMemoryFile;
-            _process.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                // Configure the process using the StartInfo properties.
+                _process.StartInfo.FileName = exeName;
+                _process.StartInfo.Arguments = DllName + " " + Path.Combine(_dllPath, DllName);
+                //_process.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                _process.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
 
-            _process.Exited += ProcessTerminated;
+                _process.Exited += (a,b) => ProcessTerminated();
+                _process.EnableRaisingEvents = true;
 
-            _process.Start();
+                SharedMemory.Connect(true);
+                _process.Start();
+            }
+            catch
+            {
+                ProcessTerminated();
+                throw;
+            }
         }
 
 
@@ -67,22 +73,27 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
         public void StopExe()
         {
-            SharedMemory.RequestStop(StopReason.Requested);
+            SharedMemory.SendStopRequest();
         }
 
 
         public void ForceStopExe()
         {
-            _process.Kill();
+            try
+            {
+                _process.Kill();
+            }
+            catch (System.Exception ex)
+            {
+                // exception means the process was already dead.  there's not much point in 
+                // testing to see if the process was alive before because if it was it may have died in
+                // between the test and the kill
+            }            
         }
 
 
-        private void ProcessTerminated(object sender, EventArgs e)
+        private void ProcessTerminated()
         {
-            // make sure that the stop reason is up to date - just incase
-            // there was a security exception and we mustn't restart
-            SharedMemory.ForceReloadOfProtectedData();
-
             if (SharedMemory.StopRequested)
                 ProcessTerminatedGracefully(DllName);
             else

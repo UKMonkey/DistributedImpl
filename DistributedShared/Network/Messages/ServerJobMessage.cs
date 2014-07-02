@@ -20,13 +20,13 @@ namespace DistributedShared.Network.Messages
         protected override void Serialise(IMessageInputStream target)
         {
             target.Write(JobData.Count);
-            for (var i = 0; i < JobData.Count; ++i)
+            foreach (var t in JobData)
             {
-                target.Write(JobData[i].JobId);
-                target.Write(JobData[i].DllName);
-                target.Write(JobData[i].Data);
+                target.Write(t.JobId);
+                target.Write(t.DllName);
+                target.Write(t.Data);
 
-                target.Write(JobData[i].SupportingDataVersion);
+                target.Write(t.SupportingDataVersion);
             }
         }
 

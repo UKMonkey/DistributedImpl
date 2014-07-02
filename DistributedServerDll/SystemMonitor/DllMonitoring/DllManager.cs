@@ -1,47 +1,56 @@
 ﻿using System;
 using DistributedServerInterfaces.Networking;
 using DistributedShared.Network.Messages;
-using DistributedShared.SystemMonitor;
 using DistributedSharedInterfaces.Messages;
-using DistributedShared.Network;
 using DistributedSharedInterfaces.Network;
 
-namespace DistributedServerDll.SystemMonitor
+namespace DistributedServerDll.SystemMonitor.DllMonitoring
 {
     public class DllManager
     {
         private readonly IConnectionManager _conectionManager;
-        private readonly DllMonitor _dllClientMonitor;
+        private readonly ServerDllMonitor _dllMonitor;
+        private readonly ClientDirectoryMonitor _clientDllMonitor;
 
-        public DllManager(DllMonitor dllMonitor, 
+        public DllManager(ServerDllMonitor dllMonitor, 
                           IConnectionManager connectionManager,
                           string clientDllLibraryUpdates,
                           string clientDllLibraryInUse)
         {
-            dllMonitor.DllUnloaded += CancelAllClientWork;
+            dllMonitor.DllLoaded += RegisterForCancelWork;
             dllMonitor.DllLoaded += SendAllClientsNewDll;
 
             _conectionManager = connectionManager;
+            _dllMonitor = dllMonitor;
 
             connectionManager.NewConnectionMade += SendExistingDllMds;
             connectionManager.RegisterMessageListener(typeof(ClientDllRequestMessage), HandleClientDllRequest);
 
-            _dllClientMonitor = new DllMonitor(clientDllLibraryUpdates, clientDllLibraryInUse, "serverClient") { PerformDllLoads = false };
-            _dllClientMonitor.StartMonitoring();
+            _clientDllMonitor = new ClientDirectoryMonitor(clientDllLibraryUpdates, dllMonitor, clientDllLibraryInUse);
+            _clientDllMonitor.FileUpdated += SendAllClientsNewDll;
+            _clientDllMonitor.StartMonitoring();
+        }
+
+
+        private void RegisterForCancelWork(String dll)
+        {
+            var loadedDll = _dllMonitor.GetLoadedDll(dll);
+            if (loadedDll == null)
+                return;
+
+            loadedDll.ProcessTerminatedGracefully   += p => CancelAllClientWork(dll);
+            loadedDll.ProcessTerminatedUnexpectedly += p => CancelAllClientWork(dll);
         }
 
 
         private void SendAllClientsNewDll(String dll)
         {
-            var msg = new ServerDllMd5Message();
-            lock (_dllClientMonitor)
-            {
-                _dllClientMonitor.ForceUpdateDll(dll);
-                msg.DllNames.Add(dll);
-                msg.Md5Values.Add(_dllClientMonitor.GetDllMd5(dll));
-            }
+            //var msg = new ServerDllMd5Message();
 
-            _conectionManager.SendMessageToAll(msg);
+            //msg.DllNames.Add(dll);
+            //msg.Md5Values.Add(_clientDllMonitor.GetFileMd5(dll));
+
+            //_conectionManager.SendMessageToAll(msg);
         }
 
 
@@ -54,12 +63,14 @@ namespace DistributedServerDll.SystemMonitor
         private void SendExistingDllMds(IConnection newCon)
         {
             var msg = new ServerDllMd5Message();
-            lock (_dllClientMonitor)
+
+            // this prevents the monitor attempting to move files while we're working!
+            lock (_clientDllMonitor)
             {
-                foreach (var availableDll in _dllClientMonitor.GetAvailableDlls())
+                foreach (var availableDll in _clientDllMonitor.GetAvailableFiles())
                 {
                     msg.DllNames.Add(availableDll);
-                    msg.Md5Values.Add(_dllClientMonitor.GetDllMd5(availableDll));
+                    msg.Md5Values.Add(_clientDllMonitor.GetFileMd5(availableDll));
                 }
             }
 
@@ -69,9 +80,9 @@ namespace DistributedServerDll.SystemMonitor
         private void SendClientDll(IConnection con, string dll)
         {
             byte[] content;
-            lock (_dllClientMonitor)
+            lock (_clientDllMonitor)
             {
-                content = _dllClientMonitor.GetDllContent(dll);
+                content = _clientDllMonitor.GetFileContent(dll);
             }
 
             _conectionManager.SendMessage(con, new ServerDllContentMessage { DllName = dll, Content = content });

@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using DistributedShared.Network.Messages;
 using DistributedShared.Stream;
-using DistributedShared.SystemMonitor;
 using DistributedShared.SystemMonitor.Managers;
 using DistributedSharedInterfaces.Messages;
 using DistributedShared.Network;
@@ -30,17 +28,19 @@ namespace DistributedClientDll.Networking
 
         private volatile bool _performWork;
         private readonly AutoResetEvent _loginReplyEvent = new AutoResetEvent(false);
-        private ServerLoginResult _loginReply = null;
+        private ServerLoginResult _loginReply;
         
 
-        public ConnectionManager(string hostname, int port)
+        public ConnectionManager(string hostname, int port, MessageManager messageManager)
         {
             _client = new TcpClient();
+            _messageManager = messageManager;
+
             _performWork = true;
 
             _hostname = hostname;
             _port = port;
-            _messageManager = new MessageManager();
+            
             MessageStatistics = new MessageStatistics(_messageManager);
         }
 
@@ -92,7 +92,7 @@ namespace DistributedClientDll.Networking
                     {
                         HandleSocketData(_connection);
                     }
-                    catch (System.Exception ex)
+                    catch (Exception)
                     {
                         _performWork = false;
                     }
@@ -116,10 +116,9 @@ namespace DistributedClientDll.Networking
 
             lock (_messageCallbackHandlers)
             {
-                if (_messageCallbackHandlers.ContainsKey(msg.GetType()))
-                    callbacks = _messageCallbackHandlers[msg.GetType()];
-                else
-                    callbacks = new List<MessageCallback>();
+                callbacks = _messageCallbackHandlers.ContainsKey(msg.GetType())
+                    ? _messageCallbackHandlers[msg.GetType()] :
+                      new List<MessageCallback>();
             }
 
             MessageStatistics.MessageReceived(msg);
@@ -151,11 +150,11 @@ namespace DistributedClientDll.Networking
                         MessageStatistics.MessageSent(msg);
                     }
                 }
-                catch (System.Exception ex)
+                catch (Exception)
                 {
-                	/// if this is because of a write exception
-                    /// then do nothing because it'll be because the connection is about to be terminated.
-                    /// if it's because it's a thread abort, then don't worry it'll be re-thrown later
+                	// if this is because of a write exception
+                    // then do nothing because it'll be because the connection is about to be terminated.
+                    // if it's because it's a thread abort, then don't worry it'll be re-thrown later
                 }
 
 

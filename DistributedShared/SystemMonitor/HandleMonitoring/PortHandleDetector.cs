@@ -26,10 +26,10 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
         }
 
 
-        private IEnumerable<OpenHandle> GetTCPv4PortListeners(int processId)
+        private static IEnumerable<OpenHandle> GetTCPv4PortListeners(int processId)
         {
-            IntPtr ptr = IntPtr.Zero;
-            IntPtr modifiedPtr = IntPtr.Zero;
+            var ptr = IntPtr.Zero;
+            var modifiedPtr = IntPtr.Zero;
             int size = 1024;
             try
             {
@@ -163,7 +163,7 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
         }
 
 
-        private IEnumerable<OpenHandle> GetUDPv6PortListeners(int processId)
+        private static IEnumerable<OpenHandle> GetUDPv6PortListeners(int processId)
         {
             IntPtr ptr = IntPtr.Zero;
             IntPtr modifiedPtr = IntPtr.Zero;

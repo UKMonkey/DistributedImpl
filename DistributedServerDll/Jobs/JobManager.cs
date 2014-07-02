@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using DistributedShared.SystemMonitor;
 using DistributedServerInterfaces.Networking;
-using DistributedServerInterfaces.Interfaces;
 using DistributedSharedInterfaces.Jobs;
 using DistributedSharedInterfaces.Messages;
 using DistributedShared.Network.Messages;
 using DistributedSharedInterfaces.Network;
+using DistributedServerDll.SystemMonitor.DllMonitoring;
 
 namespace DistributedServerDll.Jobs
 {
@@ -15,15 +14,17 @@ namespace DistributedServerDll.Jobs
     {
         private readonly Dictionary<string, RequestProcessor> _requestProcessors = new Dictionary<string, RequestProcessor>();
         private readonly IConnectionManager _connectionManager;
-        private readonly DllMonitor _dllMonitor;
+        private readonly ServerDllMonitor _dllMonitor;
         private readonly Random _randGenerator = new Random();
+        private readonly String _storePath;
 
-        public JobManager(DllMonitor dllMonitor, 
-                          IConnectionManager connectionManager)
+        public JobManager(ServerDllMonitor dllMonitor, 
+                          IConnectionManager connectionManager,
+                          String storePath)
         {
+            _storePath = storePath;
             _dllMonitor = dllMonitor;
             _dllMonitor.DllLoaded += PrepareNewJobHandler;
-            _dllMonitor.DllUnloaded += RemoveJobHandler;
 
             _connectionManager = connectionManager;
             _connectionManager.RegisterMessageListener(typeof(ClientGetSupportDataMd5Message), HandleGetSupportMd5Request);
@@ -37,12 +38,11 @@ namespace DistributedServerDll.Jobs
         {
             lock (this)
             {
-                var dllWorker = _dllMonitor.GetNewTypeFromDll<IDllApi>(dll);
-                if (dllWorker == null)
-                    return;
+                var managedDll = _dllMonitor.GetLoadedDll(dll);
+                _requestProcessors.Add(dll, new RequestProcessor(dll, managedDll, _storePath));
 
-                _requestProcessors.Add(dll, new RequestProcessor(dll, dllWorker, _connectionManager));
-                dllWorker.OnDllLoaded(_requestProcessors[dll]);
+                managedDll.ProcessTerminatedGracefully += RemoveJobHandler;
+                managedDll.ProcessTerminatedUnexpectedly += RemoveJobHandler;
             }
         }
 
@@ -54,11 +54,10 @@ namespace DistributedServerDll.Jobs
             {
                 foreach (var result in msg.JobResults)
                 {
-                    RequestProcessor proc;
                     if (!_requestProcessors.ContainsKey(result.DllName))
                         continue;
 
-                    proc = _requestProcessors[result.DllName];
+                    RequestProcessor proc = _requestProcessors[result.DllName];
                     proc.JobComplete(result);
                 }
             }
@@ -96,12 +95,13 @@ namespace DistributedServerDll.Jobs
 
         private void HandleClientRequestJobs(IConnection con, Message data)
         {
-            IEnumerable<IJobData> jobs;
             var processor = GetRandomProcessor();
             var msg = (ClientGetNewJobsMessage) data;
 
-            jobs = processor == null ? 
-                new List<IJobData>() : processor.GetJobs(msg.NumberOfJobs).ToList();
+            IEnumerable<IJobData> jobs = 
+                processor == null ? 
+                    new List<IJobData>() : 
+                    processor.GetJobs(msg.NumberOfJobs).ToList();
 
             var reply = new ServerJobMessage();
             reply.JobData.AddRange(jobs);

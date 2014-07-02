@@ -140,11 +140,9 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
                             
                         if (ret == NT_STATUS.STATUS_SUCCESS)
                         {
-                            long handleCount;
-                            if (!Is64Bits())
-                                handleCount = Marshal.ReadInt32(ptr);
-                            else
-                                handleCount = Marshal.ReadInt64(ptr);
+                            var handleCount = !Is64Bits() 
+                                    ? Marshal.ReadInt32(ptr) : 
+                                      Marshal.ReadInt64(ptr);
                                 
                             ptr += sizeof(int);
                             int size = Marshal.SizeOf(typeof(SYSTEM_HANDLE_ENTRY));
@@ -165,7 +163,7 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
                                 if (handleEntry.OwnerPid != processId)
                                     continue;
 
-                                IntPtr handle = (IntPtr)handleEntry.HandleValue;
+                                var handle = (IntPtr)handleEntry.HandleValue;
                                 SystemHandleType handleType;
 
                                 if (!GetHandleType(handle, handleEntry.OwnerPid, out handleType))
@@ -214,7 +212,7 @@ namespace DistributedShared.SystemMonitor.HandleMonitoring
         private static OpenHandle GetPortInformation(IntPtr handle, SYSTEM_HANDLE_ENTRY handleEntry)
         {
                 
-            return new OpenHandle(OpenHandle.HandleType.PORT);
+            return new OpenHandle(OpenHandle.HandleType.Port);
         }
 
         private static bool GetHandleType(IntPtr handle, int processId, out SystemHandleType handleType)

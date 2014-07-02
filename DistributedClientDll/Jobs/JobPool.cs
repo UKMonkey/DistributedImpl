@@ -13,9 +13,9 @@ namespace DistributedClientDll.Jobs
     {
         private readonly ConnectionManager _connection;
         private readonly Queue<IJobData> _jobPool;
-        private readonly short _minJobCount;
+        private volatile short _minJobCount;
         private readonly Thread _worker;
-        private bool _awaitingNewJobs = false;
+        private bool _awaitingNewJobs;
 
         private volatile bool _doWork;
         private readonly AutoResetEvent _jobsAvailable = new AutoResetEvent(false);
@@ -32,6 +32,7 @@ namespace DistributedClientDll.Jobs
             _connection.RegisterMessageListener(typeof(ServerJobMessage), HandleNewJobs);
             _connection.RegisterMessageListener(typeof(ServerCancelWorkMessage), HandleRemoveJobs);
             _doWork = true;
+            _awaitingNewJobs = false;
         }
 
 
@@ -39,6 +40,15 @@ namespace DistributedClientDll.Jobs
         {
             _doWork = false;
             _worker.Join();
+        }
+
+
+        public void UpdateJobCount(short number)
+        {
+            lock (_jobPool)
+            {
+                _minJobCount = number;
+            }
         }
 
 
@@ -83,15 +93,18 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        private void DownloadMoreJobs()
+        private Message GetDownloadMoreJobsMessage()
         {
             if (_awaitingNewJobs == false)
             {
-                var msg = new ClientGetNewJobsMessage { NumberOfJobs = (short)(_minJobCount * 2) };
-                _connection.SendMessage(msg);
+                var msg = new ClientGetNewJobsMessage 
+                    {NumberOfJobs = (short) (_minJobCount*2)};
 
                 _awaitingNewJobs = true;
+                return msg;
             }
+
+            return null;
         }
 
 
@@ -141,15 +154,17 @@ namespace DistributedClientDll.Jobs
         {
             while (_doWork)
             {
-                var doWork = false;
+                Message msg = null;
                 lock (_jobPool)
                 {
                     if (_jobPool.Count < _minJobCount)
-                        doWork = true;
+                        msg = GetDownloadMoreJobsMessage();
                 }
 
-                if (doWork)
-                    DownloadMoreJobs();
+                if (msg != null)
+                {
+                    _connection.SendMessage(msg);
+                }
 
                 Thread.Sleep(500);
             }

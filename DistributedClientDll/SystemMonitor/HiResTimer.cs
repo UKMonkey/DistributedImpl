@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Runtime.InteropServices;
-
 
 
 // largely from
@@ -14,36 +10,39 @@ namespace DistributedClientDll.SystemMonitor
 {
     public class HiResTimer
     {
-        private bool isPerfCounterSupported = false;
-        private long frequency = 0;
+        private readonly bool _isPerfCounterSupported;
+        private readonly long _frequency;
 
         // Windows CE native library with QueryPerformanceCounter().
-        private const string lib = "kernel32.dll";
-        [DllImport(lib)]
+        private const string Lib = "kernel32.dll";
+        [DllImport(Lib)]
         private static extern int QueryPerformanceCounter(ref long count);
-        [DllImport(lib)]
+        [DllImport(Lib)]
         private static extern int QueryPerformanceFrequency(ref long frequency);
 
         public HiResTimer()
         {
+            _frequency = 0;
+            _isPerfCounterSupported = false;
+
             // Query the high-resolution timer only if it is supported.
             // A returned frequency of 1000 typically indicates that it is not
             // supported and is emulated by the OS using the same value that is
             // returned by Environment.TickCount.
             // A return value of 0 indicates that the performance counter is
             // not supported.
-            int returnVal = QueryPerformanceFrequency(ref frequency);
+            var returnVal = QueryPerformanceFrequency(ref _frequency);
 
-            if (returnVal != 0 && frequency != 1000)
+            if (returnVal != 0 && _frequency != 1000)
             {
                 // The performance counter is supported.
-                isPerfCounterSupported = true;
+                _isPerfCounterSupported = true;
             }
             else
             {
                 // The performance counter is not supported. Use
                 // Environment.TickCount instead.
-                frequency = 1000;
+                _frequency = 1000;
             }
         }
 
@@ -51,7 +50,7 @@ namespace DistributedClientDll.SystemMonitor
         {
             get
             {
-                return frequency;
+                return _frequency;
             }
         }
 
@@ -61,23 +60,20 @@ namespace DistributedClientDll.SystemMonitor
             {
                 long tickCount = 0;
 
-                if (isPerfCounterSupported)
+                if (_isPerfCounterSupported)
                 {
                     // Get the value here if the counter is supported.
                     QueryPerformanceCounter(ref tickCount);
                     return tickCount;
                 }
-                else
-                {
-                    // Otherwise, use Environment.TickCount.
-                    return (long)Environment.TickCount;
-                }
+                // Otherwise, use Environment.TickCount.
+                return Environment.TickCount;
             }
         }
 
         public bool Reliable
         {
-            get { return isPerfCounterSupported;  }
+            get { return _isPerfCounterSupported;  }
         }
     }
 }
