@@ -11,3 +11,4 @@ DistributedShared/bin/
 DistributedShared/obj/
 _ReSharper.DistributedSystemImpl/
 packages/
+DistributedSystemImpl.suo
