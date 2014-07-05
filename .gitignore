@@ -1,14 +1,6 @@
 *.pdb
-DistributedClient/bin/
-DistributedClient/obj/
-DistributedClientDll/bin/
-DistributedClientDll/obj/
-DistributedServer/bin/
-DistributedServer/obj/
-DistributedServerDll/bin/
-DistributedServerDll/obj/
-DistributedShared/bin/
-DistributedShared/obj/
+*.suo
+*/bin/
+*/obj/
 _ReSharper.DistributedSystemImpl/
 packages/
-DistributedSystemImpl.suo
