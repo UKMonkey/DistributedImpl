@@ -128,6 +128,16 @@ namespace DistributedClientDll.Jobs
         }
 
 
+        private void JobCompleted()
+        {
+            lock (this)
+            {
+                _jobsInProcess--;
+                QueueNewJobs();
+            }
+        }
+
+
         private void QueueNewJobs()
         {
             if (_doWork == false)
@@ -230,7 +240,7 @@ namespace DistributedClientDll.Jobs
         {
             var dll = _dllMonitor.GetLoadedDll(dllName);
 
-            dll.SharedMemory.JobCompleted += x => QueueNewJobs();
+            dll.SharedMemory.JobCompleted += x => JobCompleted();
             dll.SharedMemory.JobCompleted += SendJobResults;
 
             dll.ProcessTerminatedGracefully += p => ForceUpdateWorkerCount();
