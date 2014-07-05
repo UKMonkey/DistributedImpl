@@ -40,6 +40,7 @@ namespace DistributedServerDll.Networking
          */
         public ConnectionManager(MessageManager messageManager)
         {
+            _performListening = true;
             _dataMonitor = new Thread(MonitorClientsMain);
             StaticThreadManager.Instance.StartNewThread(_dataMonitor, "ConnectionDataManager");
 

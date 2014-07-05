@@ -8,12 +8,12 @@ namespace DistributedShared.Network.Messages
 {
     public class ClientJobComplete : Message
     {
-        public List<IJobResultData> JobResults { get; private set; }
+        public List<WrappedResultData> JobResults { get; private set; }
 
 
         public ClientJobComplete()
         {
-            JobResults = new List<IJobResultData>();
+            JobResults = new List<WrappedResultData>();
         }
 
         protected override void Serialise(IMessageInputStream target)
@@ -21,25 +21,18 @@ namespace DistributedShared.Network.Messages
             target.Write(JobResults.Count);
             foreach (var t in JobResults)
             {
-                target.Write(t.JobId);
-                target.Write(t.DllName);
-                target.Write(t.Data);
+                target.Write(t);
             }
         }
 
         protected override void Deserialise(IMessageOutputStream source)
         {
             var count = source.ReadInt();
-            JobResults = new List<IJobResultData>(count);
+            JobResults = new List<WrappedResultData>(count);
 
             for (var i=0; i<count; ++i)
             {
-                var id = source.ReadLong();
-                var dll = source.ReadString();
-                var data = source.ReadByteArray();
-
-                var result = new JobResultData(id, dll, data);
-                JobResults.Add(result);
+                JobResults.Add(source.ReadResultData());
             }
         }
     }

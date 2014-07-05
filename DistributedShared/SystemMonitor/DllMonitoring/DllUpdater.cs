@@ -57,7 +57,8 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
             Console.WriteLine("Attempting to move " + from + " to " + to);
 
-            File.Delete(to);
+            if (File.Exists(to))
+                File.Delete(to);
             File.Move(from, to);
             ForceClearMd5(fileName);
 

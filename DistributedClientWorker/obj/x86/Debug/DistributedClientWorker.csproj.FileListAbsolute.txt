@@ -1,2 +1,5 @@
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\bin\Debug\DistributedClientWorker.exe
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\bin\Debug\DistributedClientWorker.pdb
 C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientWorker\obj\x86\Debug\DistributedClientWorker.csprojResolveAssemblyReference.cache
-D:\code\DistributedSystem_c#\DistributedImpl\DistributedClientWorker\obj\x86\Debug\DistributedClientWorker.csprojResolveAssemblyReference.cache
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientWorker\obj\x86\Debug\DistributedClientWorker.exe
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientWorker\obj\x86\Debug\DistributedClientWorker.pdb

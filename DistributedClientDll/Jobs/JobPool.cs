@@ -6,13 +6,14 @@ using DistributedShared.SystemMonitor.Managers;
 using DistributedSharedInterfaces.Jobs;
 using DistributedSharedInterfaces.Messages;
 using DistributedClientDll.Networking;
+using DistributedShared.Jobs;
 
 namespace DistributedClientDll.Jobs
 {
     public class JobPool : IDisposable
     {
         private readonly ConnectionManager _connection;
-        private readonly Queue<IJobData> _jobPool;
+        private readonly Queue<WrappedJobData> _jobPool;
         private volatile short _minJobCount;
         private readonly Thread _worker;
         private bool _awaitingNewJobs;
@@ -26,7 +27,7 @@ namespace DistributedClientDll.Jobs
         {
             _minJobCount = minJobCount;
             _connection = connection;
-            _jobPool = new Queue<IJobData>();
+            _jobPool = new Queue<WrappedJobData>();
             _worker = new Thread(MonitorJobPool);
 
             _connection.RegisterMessageListener(typeof(ServerJobMessage), HandleNewJobs);
@@ -65,7 +66,7 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        public IJobData GetNextJob(bool wait)
+        public WrappedJobData GetNextJob(bool wait)
         {
             FillPool();
             while (true)
@@ -84,7 +85,7 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        public void ReturnJobToPool(IJobData job)
+        public void ReturnJobToPool(WrappedJobData job)
         {
             lock (_jobPool)
             {
@@ -126,7 +127,7 @@ namespace DistributedClientDll.Jobs
 
         private void RemoveJobs(string dllName)
         {
-            var tmpQueue = new Queue<IJobData>();
+            var tmpQueue = new Queue<WrappedJobData>();
 
             lock (_jobPool)
             {

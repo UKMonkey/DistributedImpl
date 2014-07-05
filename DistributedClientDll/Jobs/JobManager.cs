@@ -4,6 +4,8 @@ using DistributedClientDll.Networking;
 using DistributedShared.Network.Messages;
 using DistributedClientDll.SystemMonitor.DllMonitoring;
 using DistributedSharedInterfaces.Jobs;
+using DistributedShared.Jobs;
+using DistributedSharedInterfaces.Messages;
 
 namespace DistributedClientDll.Jobs
 {
@@ -23,6 +25,8 @@ namespace DistributedClientDll.Jobs
     {
         private readonly JobPool _jobPool;              // keeps a number of jobs available in the cache
         private readonly ClientDllMonitor _dllMonitor;  // provides us access to the loaded dlls and their shared memory
+        private readonly Dictionary<String, long> _supportingDataVersions; // keeps track of the supporting Data that's available
+        private readonly HashSet<String> _awaitingSupportingData;
 
         private readonly ConnectionManager _connection;
         private volatile int _jobsInProcess;
@@ -34,6 +38,7 @@ namespace DistributedClientDll.Jobs
 
         public JobManager(ConnectionManager connection, ClientDllMonitor dllMonitor)
         {
+            _supportingDataVersions = new Dictionary<string, long>();
             _jobsInProcess = 0;
             _connection = connection;
             _dllMonitor = dllMonitor;
@@ -43,13 +48,15 @@ namespace DistributedClientDll.Jobs
 
             // when there's new jobs available, make sure that we've got all the threads going
             _jobPool.NewJobsAvailable += QueueNewJobs;
+            _dllMonitor.DllLoaded += x => QueueNewJobs();
 
             // when a job is complete, make sure we've got all the threads going
             _dllMonitor.DllLoaded += RegisterJobCompletedEvents;
+            _dllMonitor.DllLoaded += RegisterDllRemovedEvents;
 
-            // start downloading the jobs, there's no point delaying, after all we assume that the connection
-            // has been fully completed for this class to be created
-            _jobPool.FillPool();
+            // supporting data handling
+            connection.RegisterMessageListener(typeof(SupportDataVersionMessage), HandleSupportingDataVersionMessage);
+            connection.RegisterMessageListener(typeof(ServerSupportDataMessage),  HandleSupportingDataMessage);
         }
 
 
@@ -60,12 +67,57 @@ namespace DistributedClientDll.Jobs
         }
 
 
+        private void HandleSupportingDataVersionMessage(Message msg)
+        {
+            var message = (SupportDataVersionMessage)msg;
+            var getNewVersion = true;
+
+            if (_supportingDataVersions.ContainsKey(message.DllName))
+            {
+                if (_supportingDataVersions[message.DllName] == message.Version)
+                    getNewVersion = false;
+            }
+
+            if (!getNewVersion)
+                return;
+
+            GetLatestSupportingData(message.DllName);
+        }
+
+
+        private void GetLatestSupportingData(String dllName)
+        {
+            lock (_awaitingSupportingData)
+            {
+                if (_awaitingSupportingData.Contains(dllName))
+                    return;
+                _awaitingSupportingData.Add(dllName);
+
+                var reply = new ClientGetLatestSupportData();
+                reply.DllName = dllName;
+                _connection.SendMessage(reply);
+            }
+        }
+
+
+        private void HandleSupportingDataMessage(Message msg)
+        {
+            lock (_awaitingSupportingData)
+            {
+                var message = (ServerSupportDataMessage)msg;
+                _awaitingSupportingData.Remove(message.DllName);
+                var dll = _dllMonitor.GetLoadedDll(message.DllName);
+                if (dll == null)
+                    return;
+
+                dll.SharedMemory.SetCurrentSupportingData(message.Data);
+            }
+        }
+
+
         public void StopDoingJobs()
         {
-            lock (this)
-            {
-                _doWork = false;
-            }
+            _doWork = false;
         }
 
 
@@ -78,13 +130,15 @@ namespace DistributedClientDll.Jobs
 
         private void QueueNewJobs()
         {
+            if (_doWork == false)
+                return;
+
+            var failed = new List<WrappedJobData>();
+
             lock (this)
             {
-                if (_doWork == false)
-                    return;
-
-                var failed = new List<IJobData>();
-                while (_jobsInProcess < TargetNumberOfWorkers)
+                var empty = false;
+                while (!empty && _jobsInProcess < TargetNumberOfWorkers)
                 {
                     var nextJob = _jobPool.GetNextJob(false);
                     if (nextJob != null)
@@ -92,6 +146,10 @@ namespace DistributedClientDll.Jobs
                         var success = QueueJob(nextJob);
                         if (!success)
                             failed.Add(nextJob);
+                    }
+                    else
+                    {
+                        empty = true;
                     }
                 }
 
@@ -103,11 +161,20 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        private bool QueueJob(IJobData data)
+        private bool QueueJob(WrappedJobData data)
         {
             var dll = _dllMonitor.GetLoadedDll(data.DllName);
             if (dll == null || !dll.IsRunning())
                 return false;
+
+            lock (_supportingDataVersions)
+            {
+                if (!_supportingDataVersions.ContainsKey(data.DllName) ||
+                 _supportingDataVersions[data.DllName] < data.SupportingDataVersion)
+                {
+                    GetLatestSupportingData(data.DllName);
+                }
+            }
 
             _jobsInProcess++;
             dll.SharedMemory.AddJobData(data);
@@ -115,7 +182,7 @@ namespace DistributedClientDll.Jobs
         }
 
 
-        private void SendJobResults(IJobResultData result)
+        private void SendJobResults(WrappedResultData result)
         {
             var msg = new ClientJobComplete();
             msg.JobResults.Add(result);
@@ -138,6 +205,24 @@ namespace DistributedClientDll.Jobs
                     _numberOfWorkers += dll.SharedMemory.GetCurrentWorkerCount();
                 }
             }
+        }
+
+
+        private void DllRemovedHandler(string dllName)
+        {
+            lock (_supportingDataVersions)
+            {
+                if (_supportingDataVersions.ContainsKey(dllName))
+                    _supportingDataVersions.Remove(dllName);
+            }
+        }
+
+
+        private void RegisterDllRemovedEvents(string dllName)
+        {
+            var dll = _dllMonitor.GetLoadedDll(dllName);
+            dll.ProcessTerminatedGracefully += DllRemovedHandler;
+            dll.ProcessTerminatedUnexpectedly += DllRemovedHandler;
         }
 
 

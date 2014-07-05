@@ -7,6 +7,7 @@ using DistributedServerInterfaces.Interfaces;
 using DistributedServerDll.SystemMonitor.DllMonitoring;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
 using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction;
+using System.IO;
 
 namespace DistributedServerDll
 {
@@ -32,7 +33,7 @@ namespace DistributedServerDll
 
         private HostDllCommunication GetSharedMemory()
         {
-            return new HostDllCommunication(_messageManager);
+            return new HostDllCommunication(_messageManager, "Server");
         }
 
 
@@ -61,6 +62,7 @@ namespace DistributedServerDll
             _serverDllMonitor.StartMonitoring();
             _connectionManager.ListenForConections(port);
         }
+
 
         public void StopListening()
         {

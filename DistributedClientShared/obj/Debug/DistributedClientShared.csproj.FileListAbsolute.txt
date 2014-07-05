@@ -1,0 +1,11 @@
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedClientShared.dll
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedClientShared.pdb
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedClientInterfaces.dll
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedShared.dll
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedSharedInterfaces.dll
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedClientInterfaces.pdb
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedSharedInterfaces.pdb
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\bin\Debug\DistributedShared.pdb
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\obj\Debug\DistributedClientShared.csprojResolveAssemblyReference.cache
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\obj\Debug\DistributedClientShared.dll
+C:\Users\andersj\Desktop\BackgroundProjects\DistributedSystem_c#\DistributedImpl\DistributedClientShared\obj\Debug\DistributedClientShared.pdb

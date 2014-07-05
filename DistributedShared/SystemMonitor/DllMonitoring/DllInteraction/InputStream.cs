@@ -1,5 +1,6 @@
 ﻿using DistributedSharedInterfaces.Messages;
 using System.IO.Pipes;
+using System;
 
 namespace DistributedShared.SystemMonitor.DllMonitoring.DllInteraction
 {
@@ -16,13 +17,26 @@ namespace DistributedShared.SystemMonitor.DllMonitoring.DllInteraction
 
         public void Write(byte[] buffer, int offset, int size)
         {
-            _pipe.Write(buffer, offset, size);
-            _dataWritten += size;
+            try
+            {
+                _pipe.Write(buffer, offset, size);
+                _dataWritten += size;
+            }
+            catch (System.Exception ex)
+            {
+                Console.WriteLine("Unable to complete sending a message");
+            }
         }
 
         public void Flush()
         {
-            _pipe.Flush();
+            try
+            {
+                //_pipe.Flush();
+            }
+            catch (System.Exception)
+            {
+            }
         }
 
         public void ResetStats()

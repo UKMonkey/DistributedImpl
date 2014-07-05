@@ -19,8 +19,8 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -43,11 +43,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="JobManager.cs" />
-    <Compile Include="JobPool.cs" />
-    <Compile Include="JobWorker.cs" />
+    <Compile Include="Jobs\DllWorker.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SystemMonitor\SecurityHandler.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\DistributedInterfaces\DistributedClientInterfaces\DistributedClientInterfaces.csproj">
@@ -62,11 +61,16 @@
       <Project>{A078D77A-D9BC-430C-A4B5-12382A02DDDC}</Project>
       <Name>DistributedClientDll</Name>
     </ProjectReference>
+    <ProjectReference Include="..\DistributedClientShared\DistributedClientShared.csproj">
+      <Project>{59E3CF22-D457-476C-A128-55BF7B4DABA3}</Project>
+      <Name>DistributedClientShared</Name>
+    </ProjectReference>
     <ProjectReference Include="..\DistributedShared\DistributedShared.csproj">
       <Project>{EDCD524D-0F90-450F-9ECD-C5BE3804E6FC}</Project>
       <Name>DistributedShared</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

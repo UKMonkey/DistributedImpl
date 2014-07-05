@@ -9,6 +9,8 @@ using DistributedShared.SystemMonitor.Managers;
 using DistributedSharedInterfaces.Jobs;
 using DistributedShared.SystemMonitor.DllMonitoring;
 using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction;
+using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction.Messages;
+using DistributedShared.Jobs;
 
 namespace DistributedServerDll.Jobs
 {
@@ -18,37 +20,41 @@ namespace DistributedServerDll.Jobs
 
         private volatile bool _provideJobs = true;
         private volatile bool _doWork = true;
-        private long _currentSupportingDataVersion;
-        private bool _awaitingJobs;
+        private volatile bool _awaitingJobs;
 
         private readonly DllWrapper<HostDllCommunication> _brain;
-        private readonly Queue<IJobGroup> _queuedJobGroups = new Queue<IJobGroup>();
+        private readonly Queue<WrappedJobGroup> _queuedJobGroups = new Queue<WrappedJobGroup>();
+        private readonly Queue<WrappedJobData> _queuedJobs = new Queue<WrappedJobData>();
+
         private readonly Thread _jobQueueMaintainer;
-        private readonly DllJobGroupStore _jobStore;
+        private readonly DllJobStore _jobStore;
 
         private readonly AutoResetEvent _jobsRequestedEvent;
+        private Dictionary<String, byte[]> _supportingData;
 
         public RequestProcessor(string dllName, DllWrapper<HostDllCommunication> jobBrain, string storePath)
         {
-            _currentSupportingDataVersion = 0;
             _awaitingJobs = false;
 
             DllName = dllName;
             _brain = jobBrain;
 
-            _brain.SharedMemory.SupportingDataChanged += UpdateSupportingDataVersion;
-            _brain.SharedMemory.JobGroupAvailable += p => ResetWaitingFlag();
-            _brain.SharedMemory.JobGroupAvailable += QueueNewJobs;
+            _jobStore = new DllJobStore(storePath, dllName);
+
+            _supportingData = _jobStore.GetStoredSupportingData();
+            foreach (var group in _jobStore.GetStoredGroups())
+                _queuedJobGroups.Enqueue(group);
+            foreach (var job in _jobStore.GetStoredJobs())
+                _queuedJobs.Enqueue(job);
+
+            _brain.SharedMemory.JobGroupAvailable += (p, q, r) => ResetWaitingFlag();
+            _brain.SharedMemory.JobGroupAvailable += QueueNewJobGroup;
+
+            _brain.SharedMemory.JobGroupDeconstructed += (p, q) => ResetWaitingFlag();
+            _brain.SharedMemory.JobGroupDeconstructed += QueueNewJobs;
 
             _jobQueueMaintainer = new Thread(JobQueueMaintainerMain);
             _jobsRequestedEvent = new AutoResetEvent(true);
-
-            _jobStore = new DllJobGroupStore(storePath, dllName);
-            var status = _jobStore.GetStoredStatus();
-
-            if (status.Length != 0)
-                jobBrain.SharedMemory.StatusData = status;
-            _currentSupportingDataVersion = _jobStore.GetStoredSupportingDataVersion();
 
             StaticThreadManager.Instance.StartNewThread(_jobQueueMaintainer, "JobQueueMonitor");
         }
@@ -67,32 +73,29 @@ namespace DistributedServerDll.Jobs
         }
 
 
-        public IEnumerable<IJobData> GetJobs(int count)
+        public IEnumerable<WrappedJobData> GetJobs(int count)
         {
-            var grp = new List<IJobGroup>();
+            var grp = new List<WrappedJobData>();
 
-            lock (this)
+            lock (_queuedJobs)
             {
-                while (_queuedJobGroups.Count > 0 && count > 0)
+                while (_queuedJobs.Count > 0 && count > 0)
                 {
-                    var jobs = _queuedJobGroups.Dequeue();
-                    count -= jobs.JobCount;
-                    grp.Add(jobs);
+                    var job = _queuedJobs.Dequeue();
+                    count--;
+                    grp.Add(job);
                 }
             }
 
             _jobsRequestedEvent.Set();
 
-            return grp.SelectMany(x => x.GetJobs());
+            return grp;
         }
 
 
         public void JobComplete(IJobResultData jobResult)
         {
-            lock (this)
-            {
-                _brain.SharedMemory.DataProvided(jobResult);
-            }
+            _brain.SharedMemory.DataProvided(jobResult);
         }
 
 
@@ -122,59 +125,124 @@ namespace DistributedServerDll.Jobs
         }
 
 
-        public SQLiteConnection GetSQInterface()
-        {
-            return null;
-        }
-
-
         public long GetSupportingDataVersion()
         {
-            return _currentSupportingDataVersion;
-        }
-
-
-        public byte[] GetSupportingData()
-        {
-            return _brain.SharedMemory.SupportingData;
-        }
-
-
-        private void QueueNewJobs(IJobGroup group)
-        {
-            lock (_queuedJobGroups)
+            lock (_supportingData)
             {
-                _queuedJobGroups.Enqueue(group);
-                group.SupportingDataVersion = _currentSupportingDataVersion;
+                return BitConverter.ToInt64(_supportingData[ReservedKeys.Version], 0);
             }
         }
 
 
-        private void UpdateSupportingDataVersion(long version)
+        private void QueueNewJobs(WrappedJobGroup group, List<WrappedJobData> jobs)
         {
-            _currentSupportingDataVersion = version;
+            lock (_jobStore)
+            {
+                _jobStore.StoreGroupData(group, jobs);
+            }
+
+            lock (_queuedJobs)
+            {
+                foreach (var job in jobs)
+                    _queuedJobs.Enqueue(job);
+            }
+        }
+
+
+        private void QueueNewJobGroup(WrappedJobGroup group, Dictionary<String, byte[]> statusChanged, Dictionary<String, byte[]> supportChanged)
+        {
+            lock (_supportingData)
+            {
+                foreach (var item in supportChanged)
+                    _supportingData[item.Key] = item.Value;
+                group.SupportingDataVersion = BitConverter.ToInt64(_supportingData[ReservedKeys.Version], 0);
+            }
+
+            lock (_jobStore)
+            {
+                _jobStore.StoreNewGroup(group, statusChanged, supportChanged);
+            }
+
+            lock (_queuedJobGroups)
+            {
+                _queuedJobGroups.Enqueue(group);
+            }
+        }
+
+
+        private void DeepCopyData(Dictionary<string, byte[]> from, Dictionary<string, byte[]> to)
+        {
+            to.Clear();
+            lock (from)
+            {
+                foreach (var item in from)
+                {
+                    var newValue = new byte[item.Value.Length];
+                    item.Value.CopyTo(newValue, 0);
+
+                    to[item.Key] = newValue;
+                }
+            }
+        }
+
+
+        public void CopySupportingData(Dictionary<String, byte[]> target)
+        {
+            DeepCopyData(_supportingData, target);
+        }
+
+
+        private void SendDllStoredData()
+        {
+            var msg = new ServerOldStatusDataMessage();
+            Dictionary<String, byte[]> data;
+            lock (_jobStore)
+            {
+                data = _jobStore.GetStoredStatus();
+            }
+
+            DeepCopyData(data, msg.Status);
+            DeepCopyData(_supportingData, msg.SupportingData);
+
+            _brain.SharedMemory.SendMessage(msg);
         }
 
 
         private void JobQueueMaintainerMain()
         {
+            SendDllStoredData();
+
             while (_doWork)
             {
                 _jobsRequestedEvent.WaitOne(500);
                 var queueNewJobs = false;
+                WrappedJobGroup nextJobToExpand = null;
+
                 if (_awaitingJobs)
                     continue;
 
-                lock (this)
+                lock (_queuedJobGroups)
                 {
-                    if (_queuedJobGroups.Count < 100)
+                    if (_queuedJobGroups.Count < 5)
                         queueNewJobs = true;
+
+                    lock (_queuedJobs)
+                    {
+                        if (_queuedJobs.Count < 100 && _queuedJobGroups.Count > 0)
+                            nextJobToExpand = _queuedJobGroups.Dequeue();
+                    }
                 }
 
                 if (queueNewJobs)
                 {
                     _awaitingJobs = true;
                     _brain.SharedMemory.GetNextJobGroup(100);
+                }
+
+                if (nextJobToExpand != null)
+                {
+                    _awaitingJobs = true;
+                    _brain.SharedMemory.DeconstructJobGroup(nextJobToExpand);
                 }
             }
         }

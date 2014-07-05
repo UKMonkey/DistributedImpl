@@ -7,6 +7,7 @@ using DistributedSharedInterfaces.Messages;
 using DistributedShared.Network.Messages;
 using DistributedSharedInterfaces.Network;
 using DistributedServerDll.SystemMonitor.DllMonitoring;
+using DistributedShared.Jobs;
 
 namespace DistributedServerDll.Jobs
 {
@@ -27,7 +28,6 @@ namespace DistributedServerDll.Jobs
             _dllMonitor.DllLoaded += PrepareNewJobHandler;
 
             _connectionManager = connectionManager;
-            _connectionManager.RegisterMessageListener(typeof(ClientGetSupportDataMd5Message), HandleGetSupportMd5Request);
             _connectionManager.RegisterMessageListener(typeof(ClientGetLatestSupportData), HandleGetLatestSupportDataRequest);
             _connectionManager.RegisterMessageListener(typeof(ClientGetNewJobsMessage), HandleClientRequestJobs);
             _connectionManager.RegisterMessageListener(typeof(ClientJobComplete), HandleClientCompleteJobs);
@@ -98,34 +98,13 @@ namespace DistributedServerDll.Jobs
             var processor = GetRandomProcessor();
             var msg = (ClientGetNewJobsMessage) data;
 
-            IEnumerable<IJobData> jobs = 
-                processor == null ? 
-                    new List<IJobData>() : 
+            IEnumerable<WrappedJobData> jobs = 
+                processor == null ?
+                    new List<WrappedJobData>() : 
                     processor.GetJobs(msg.NumberOfJobs).ToList();
 
             var reply = new ServerJobMessage();
             reply.JobData.AddRange(jobs);
-
-            _connectionManager.SendMessage(con, reply);
-        }
-
-
-        private void HandleGetSupportMd5Request(IConnection con, Message data)
-        {
-            var msg = (ClientGetSupportDataMd5Message) data;
-            Message reply;
-
-            lock (this)
-            {
-                if (!_requestProcessors.ContainsKey(msg.DllName))
-                    reply = new ServerUnrecognisedDllMessage {DllName = msg.DllName};
-                else
-                    reply = new SupportDataVersionMessage
-                                {
-                                    DllName = msg.DllName,
-                                    Version = _requestProcessors[msg.DllName].GetSupportingDataVersion(),
-                                };
-            }
 
             _connectionManager.SendMessage(con, reply);
         }
@@ -139,14 +118,17 @@ namespace DistributedServerDll.Jobs
             lock (this)
             {
                 if (!_requestProcessors.ContainsKey(msg.DllName))
-                    reply = new ServerUnrecognisedDllMessage {DllName = msg.DllName};
+                {
+                    reply = new ServerUnrecognisedDllMessage { DllName = msg.DllName };
+                }
                 else
+                {
                     reply = new ServerSupportDataMessage
                                 {
                                     DllName = msg.DllName,
-                                    Version = _requestProcessors[msg.DllName].GetSupportingDataVersion(),
-                                    Data = _requestProcessors[msg.DllName].GetSupportingData()
                                 };
+                    _requestProcessors[msg.DllName].CopySupportingData(((ServerSupportDataMessage)reply).Data);
+                }
             }
 
             _connectionManager.SendMessage(con, reply);

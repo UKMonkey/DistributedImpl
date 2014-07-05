@@ -6,6 +6,7 @@ using DistributedClientInterfaces.Interfaces;
 using DistributedClientDll.SystemMonitor.DllMonitoring;
 using DistributedShared.Network;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
+using DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction;
 
 namespace DistributedClientDll
 {
@@ -15,6 +16,7 @@ namespace DistributedClientDll
 
         private ConnectionManager _connectionManager;
         private ClientDllMonitor _dllMonitor;
+        private ClientDirectoryMonitor _directoryMonitor;
 
         private DllProcessor _dllProcessor;
         private JobManager _jobManager;
@@ -29,9 +31,9 @@ namespace DistributedClientDll
         }
 
 
-        private ClientDllCommunication GetSharedMemory()
+        public HostDllCommunication GetCommunication()
         {
-            return new ClientDllCommunication(_messageManager);
+            return new HostDllCommunication(_messageManager, "Client");
         }
 
 
@@ -43,19 +45,18 @@ namespace DistributedClientDll
             {
                 Disconnect();
 
-                _dllMonitor = new ClientDllMonitor(clientTargetNewDirectory, clientTargetWorkingDirectory, GetSharedMemory);
                 _connectionManager = new ConnectionManager(hostName, port, _messageManager);
+                _dllMonitor = new ClientDllMonitor(clientTargetWorkingDirectory, "DistributedClientWorker.exe", GetCommunication);
+                _directoryMonitor = new ClientDirectoryMonitor(clientTargetNewDirectory, _dllMonitor, clientTargetWorkingDirectory);
+
                 _dllProcessor = new DllProcessor(_dllMonitor, _connectionManager);
-
                 _jobManager = new JobManager(_connectionManager, _dllMonitor);
+                _dllMonitor.StartMonitoring();
 
-                var success = _connectionManager.Connect(userName);
-                if (!success)
+                var _connected = _connectionManager.Connect(userName);
+                if (!_connected)
                     return false;
 
-                _connected = true;
-
-                _dllMonitor.StartMonitoring();
                 _jobManager.StartDoingJobs();
 
                 return true;

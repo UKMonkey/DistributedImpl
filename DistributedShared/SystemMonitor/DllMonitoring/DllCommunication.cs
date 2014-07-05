@@ -39,6 +39,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         // already connected
         // TODO - requre this to be set before running
         public String DllName { get; set; }
+        public String NamePrepend { get; protected set; }
 
         public StopReason StopReason { get; private set; }
         public bool StopRequested { get; private set; }
@@ -66,6 +67,9 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         public void Dispose()
         {
             _montiorFile = false;
+            if (_monitor == null)
+                return;
+
             _monitor.Join(1000);
             if (_monitor.IsAlive)
             {
@@ -106,12 +110,20 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
             _waitForConnection = isNew;
             if (isNew)
             {
-                _pipe = new NamedPipeServerStream(DllName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                _pipe = new NamedPipeServerStream(NamePrepend + DllName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
             }
             else
             {
-                _pipe = new NamedPipeClientStream(".", DllName, PipeDirection.InOut, PipeOptions.Asynchronous);
-                ((NamedPipeClientStream)_pipe).Connect();
+                _pipe = new NamedPipeClientStream(".", NamePrepend + DllName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                try
+                {
+                    ((NamedPipeClientStream)_pipe).Connect(1000);
+                }
+                catch (System.Exception ex)
+                {
+                    PipeBroken(this);
+                    return;
+                }
             }
 
             _inputStream = new InputStream(_pipe);
@@ -156,12 +168,14 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
                 var messageType = BitConverter.ToInt16(buffer, 2);
                 var msg = (DllMessage)_msgManager.GetMessage(dllId, messageType);
 
+                Console.WriteLine("Receiving message " + msg.GetType().ToString());
                 msg.LoadFromStream(_outputStream);
+                Console.WriteLine("Received");
 
                 lock (this)
                 {
                     if (!_messageHandlers.ContainsKey(msg.GetType()))
-                        return;
+                        continue;
 
                     foreach (var callback in _messageHandlers[msg.GetType()])
                         callback(msg);
@@ -191,9 +205,11 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
             lock (_inputStream)
             {
+                Console.WriteLine("Sending message " + msg.GetType().ToString());
                 _inputStream.Write(buffer, 0, 4);
                 msg.PushToStream(_inputStream);
                 _inputStream.Flush();
+                Console.WriteLine("MessageSent");
             }
         }
     }

@@ -8,12 +8,12 @@ namespace DistributedShared.Network.Messages
 {
     public class ServerJobMessage : Message
     {
-        public List<IJobData> JobData { get; private set; }
+        public List<WrappedJobData> JobData { get; private set; }
 
 
         public ServerJobMessage()
         {
-            JobData = new List<IJobData>();
+            JobData = new List<WrappedJobData>();
         }
 
 
@@ -22,11 +22,7 @@ namespace DistributedShared.Network.Messages
             target.Write(JobData.Count);
             foreach (var t in JobData)
             {
-                target.Write(t.JobId);
-                target.Write(t.DllName);
-                target.Write(t.Data);
-
-                target.Write(t.SupportingDataVersion);
+                target.Write(t);
             }
         }
 
@@ -35,16 +31,10 @@ namespace DistributedShared.Network.Messages
         {
             var count = source.ReadInt();
 
-            JobData = new List<IJobData>(count);
+            JobData = new List<WrappedJobData>(count);
             for (var i = 0; i < count; ++i)
             {
-                var id = source.ReadLong();
-                var name = source.ReadString();
-                var data = source.ReadByteArray();
-                var version = source.ReadLong();
-
-                JobData.Add(new JobData(id, data, name) 
-                    { SupportingDataVersion = version });
+                JobData.Add(source.ReadJobData());
             }
         }
     }

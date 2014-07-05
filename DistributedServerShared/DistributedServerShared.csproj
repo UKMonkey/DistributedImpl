@@ -41,14 +41,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\Messages\ClientResultsProcessed.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\StreamWriterExtensions.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\StreamReaderExtensions.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\FakeJobGroup.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\Messages\ClientJobGroupContentsMessage.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\Messages\ClientNewJobGroupMessage.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\Messages\ServerDeconstructJobGroupMessage.cs" />
-    <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\Messages\ServerRequestNewJobGroupMessage.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\WorkerDllCommunication.cs" />
     <Compile Include="SystemMonitor\DllMonitoring\DllInteraction\HostDllCommunication.cs" />
   </ItemGroup>

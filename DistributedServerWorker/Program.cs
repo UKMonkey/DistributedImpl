@@ -8,6 +8,7 @@ using System.Threading;
 using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction;
 using DistributedShared.SystemMonitor;
 using DistributedServerInterfaces.Interfaces;
+using DistributedServerWorker.SystemMonitor;
 
 namespace DistributedServerWorker
 {
@@ -20,9 +21,10 @@ namespace DistributedServerWorker
 
         private readonly MessageManager _messageManager = new MessageManager();
         private readonly WorkerDllCommunication _communication;
+        private readonly SecurityHandler _security;
 
-        private readonly JobCollector _JobCollector;
-        private readonly HandleMontior _handleMonitor;
+        private readonly JobsHandler _JobCollector;
+        private readonly EventWaitHandle _waitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
 
         private Assembly _dllLoaded;
         private IDllApi _dllApi;
@@ -32,65 +34,54 @@ namespace DistributedServerWorker
             _dllPath = dllPath;
             _dllName = dllName;
 
-            _communication = new WorkerDllCommunication(_messageManager) { DllName = _dllName };
-            _handleMonitor = new HandleMontior();
+            _communication = new WorkerDllCommunication(_messageManager, "Server") { DllName = _dllName };
+            _communication.StopRequired += TerminateProgram;
+            _JobCollector = new JobsHandler(_communication, _dllName);
 
-            _handleMonitor.FileOpened += SecurityBreach;
-            _handleMonitor.NetworkConnection += SecurityBreach;
-            _handleMonitor.ProcessCreated += SecurityBreach;
-            _handleMonitor.ThreadCreated += SecurityBreach;
+            _communication.Connect();
+
+            _security = new SecurityHandler(_communication);
+            _security.RegisterValidDirectory(Path.GetDirectoryName(dllPath));
+            _security.RegisterValidDirectory(@"C:\Windows");
 
             _dllLoaded = DllHelper.LoadDll(dllPath);
             _dllApi = DllHelper.GetNewTypeFromDll<IDllApi>(_dllLoaded);
-            _JobCollector = new JobCollector(_communication, _dllApi);
-
-            _communication.StopRequired += TerminateProgram;
-            
-            _communication.Connect();
+            _JobCollector.SetDllApi(_dllApi);
         }
 
 
-        public void Sleep()
+        public void DoWork()
         {
             while (_doWork)
             {
-                Thread.Sleep(1000);
-            }            
+                _waitHandle.Reset();
+                var didWork = false;
+                
+                didWork = _JobCollector.DoNewJobsWork();
+
+                while (_doWork && _JobCollector.DoProcessResultsWork())
+                    didWork = true;
+
+                if (!didWork)
+                    _waitHandle.WaitOne(500);
+            }
         }
 
 
         public void Dispose()
         {
             _communication.Dispose();
+            _security.Dispose();
             _dllLoaded = null;
             _dllApi = null;
             GC.Collect();
         }
 
 
-        private void SecurityBreach(FileInfo fileData)
-        {
-        }
-
-
-        private void SecurityBreach(ProcessThread threadData)
-        {
-        }
-
-
-        private void SecurityBreach(OpenHandle.PortInfo portData)
-        {
-        }
-
-
-        private void SecurityBreach(Process processData)
-        {
-        }
-
-
         private void TerminateProgram()
         {
             _doWork = false;
+            _waitHandle.Set();
         }
 
 
@@ -102,7 +93,7 @@ namespace DistributedServerWorker
             var fullDllPath = args[1];
 
             var worker = new Program(fullDllPath, dllName);
-            worker.Sleep();
+            worker.DoWork();
             worker.Dispose();
         }
     }

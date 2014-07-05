@@ -6,12 +6,14 @@ using DistributedShared.SystemMonitor.DllMonitoring;
 using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction.Messages;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
 using System.Collections.Generic;
+using System;
+using DistributedShared.Jobs;
 
 namespace DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction
 {
-    public delegate void SupportingVersionCallback(long version);
-    public delegate void StopRequiredCallback();
-    public delegate void JobGroupDataCallback(IJobGroup group, List<IJobData> jobData);
+    public delegate void JobGroupAvialableCallback(WrappedJobGroup item, Dictionary<String, byte[]> changedStatus, Dictionary<String, byte[]> changedSupportingData);
+    public delegate void JobResultsProcessedCallback(WrappedResultData item, Dictionary<String, byte[]> changedStatus, Dictionary<String, byte[]> changedSupportingData);
+    public delegate void JobGroupDataCallback(WrappedJobGroup group, List<WrappedJobData> jobData);
 
     /// <summary>
     /// On a job being provided, it is assumed that the supporting data will be updated before
@@ -19,22 +21,40 @@ namespace DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction
     /// </summary>
     public class HostDllCommunication : DllCommunication
     {
-        public event SupportingVersionCallback SupportingDataChanged;
-        public event JobGroupCallback JobGroupAvailable;
+        public event JobGroupAvialableCallback JobGroupAvailable;
         public event JobGroupDataCallback JobGroupDeconstructed;
+        public event JobResultsProcessedCallback JobGroupProcessed;
 
-        public byte[] SupportingData { get; private set; }
-        public byte[] StatusData { get; set; } 
 
-        public HostDllCommunication(MessageManager messageManager)
+        public HostDllCommunication(MessageManager messageManager, String namePrepend)
             : base(messageManager)
         {
+            NamePrepend = namePrepend;
+
+            RegisterMessageListener(typeof(ClientNewJobGroupMessage), NewJobGroupHandler);
+            RegisterMessageListener(typeof(ClientJobGroupContentsMessage), JobContentsHandler);
+            //RegisterMessageListener(typeof(ClientProcessedResultsMessage), OldDataAvailableHandler);
+            //RegisterMessageListener(typeof(ClientSecurityBreachMessage), OldDataAvailableHandler);
         }
 
 
         public void Connect()
         {
             base.Connect(true);
+        }
+
+
+        private void NewJobGroupHandler(DllMessage msg)
+        {
+            var message = (ClientNewJobGroupMessage)msg;
+            JobGroupAvailable(message.JobGroup, message.StatusChanged, message.SupportingDataChanged);
+        }
+
+
+        private void JobContentsHandler(DllMessage msg)
+        {
+            var message = (ClientJobGroupContentsMessage)msg;
+            JobGroupDeconstructed(message.JobGroup, message.JobData);
         }
 
 
@@ -53,7 +73,7 @@ namespace DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction
         /// Asks the worker to break down a job group into the individual jobs
         /// </summary>
         /// <param name="group"></param>
-        public void DeconstructJobGroup(IJobGroup group)
+        public void DeconstructJobGroup(WrappedJobGroup group)
         {
             var msg = new ServerDeconstructJobGroupMessage() { JobGroup = group };
             SendMessage(msg);

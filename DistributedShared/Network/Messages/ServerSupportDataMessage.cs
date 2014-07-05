@@ -1,14 +1,15 @@
 ﻿using DistributedShared.Stream;
 using DistributedSharedInterfaces.Messages;
+using System.Collections.Generic;
+using System;
 
 namespace DistributedShared.Network.Messages
 {
     public class ServerSupportDataMessage: Message
     {
-        public string DllName;
-
+        public string DllName { get; set; }
         public long Version { get; set; }
-        public byte[] Data { get; set; }
+        public Dictionary<String, byte[]> Data { get; set; }
 
 
         protected override void Serialise(IMessageInputStream target)
@@ -23,7 +24,7 @@ namespace DistributedShared.Network.Messages
         {
             DllName = source.ReadString();
             Version = source.ReadLong();
-            Data = source.ReadByteArray();
+            Data = source.ReadDataDict();
         }
     }
 }

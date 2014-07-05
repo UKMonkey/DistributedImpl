@@ -14,17 +14,16 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
     /* implemented, it just monitors dlls and notifies them when to stop    */
     /* so that they can be replaced                                         */
     /************************************************************************/
-    public class DllMonitor<TSharedMemoryType> : DirectoryMonitor
-        where TSharedMemoryType : DllCommunication
+    public class DllMonitor<TCommunicationType> : DirectoryMonitor
+        where TCommunicationType : DllCommunication
     {
-        public delegate TSharedMemoryType GetSharedMemoryDelegate();
+        public delegate TCommunicationType GetSharedMemoryDelegate();
 
         private readonly GetSharedMemoryDelegate _getSharedMemory;
         private readonly String _exeName;
 
-        private readonly Dictionary<String, DllWrapper<TSharedMemoryType>> _loadedDlls = new Dictionary<string, DllWrapper<TSharedMemoryType>>();
+        private readonly Dictionary<String, DllWrapper<TCommunicationType>> _loadedDlls = new Dictionary<string, DllWrapper<TCommunicationType>>();
         private readonly HashSet<String> _dllsToRestart = new HashSet<string>();
-
 
         public event FilenameCallback DllLoaded;
         public event FilenameCallback DllUnavailable;
@@ -62,9 +61,9 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         /// </summary>
         /// <param name="dll"></param>
         /// <returns></returns>
-        public virtual DllWrapper<TSharedMemoryType> GetLoadedDll(string dll)
+        public virtual DllWrapper<TCommunicationType> GetLoadedDll(string dll)
         {
-            DllWrapper<TSharedMemoryType> ret;
+            DllWrapper<TCommunicationType> ret;
             lock (this)
             {
                 ret = _loadedDlls.ContainsKey(dll)
@@ -98,7 +97,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
 
         /// <summary>
-        /// kill the process without hesition.  Make it die, make it die now.
+        /// kill the process without hesitation.  Make it die, make it die now.
         /// </summary>
         /// <param name="dllName"></param>
         public void ForceUnloadDll(string dllName)
@@ -188,7 +187,7 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
         protected override void ProcessFile(String fullFileName, String fileName)
         {
             var item = _getSharedMemory();
-            var wrapper = new DllWrapper<TSharedMemoryType>(FolderToMonitor, fileName, item);
+            var wrapper = new DllWrapper<TCommunicationType>(FolderToMonitor, fileName, item);
             wrapper.ProcessTerminatedUnexpectedly += RestartDllIfOk;
 
             _loadedDlls.Add(fileName, wrapper);
