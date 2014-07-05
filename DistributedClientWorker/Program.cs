@@ -35,8 +35,6 @@ namespace DistributedClientWorker
             _dllPath = dllPath;
             _dllName = dllName;
 
-            Debugger.Launch();
-
             _communication = new WorkerDllCommunication(_messageManager, "Client") { DllName = _dllName };
             _communication.StopRequired += TerminateProgram;
 
