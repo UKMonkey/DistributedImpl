@@ -26,7 +26,7 @@ namespace DistributedClientDll.Jobs
         private readonly JobPool _jobPool;              // keeps a number of jobs available in the cache
         private readonly ClientDllMonitor _dllMonitor;  // provides us access to the loaded dlls and their shared memory
         private readonly Dictionary<String, long> _supportingDataVersions; // keeps track of the supporting Data that's available
-        private readonly HashSet<String> _awaitingSupportingData;
+        private readonly HashSet<String> _awaitingSupportingData = new HashSet<String>();
 
         private readonly ConnectionManager _connection;
         private volatile int _jobsInProcess;

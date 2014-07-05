@@ -55,6 +55,8 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
             String from = Path.Combine(FolderToMonitor, fileName);
             String to = Path.Combine(_targetCopyDirectory, fileName);
 
+            Directory.CreateDirectory(_targetCopyDirectory);
+
             Console.WriteLine("Attempting to move " + from + " to " + to);
 
             if (File.Exists(to))

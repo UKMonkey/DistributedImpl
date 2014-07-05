@@ -40,6 +40,8 @@ namespace DistributedClientWorker
             _communication = new WorkerDllCommunication(_messageManager, "Client") { DllName = _dllName };
             _communication.StopRequired += TerminateProgram;
 
+            _jobWorker = new DllWorker(_communication);
+
             _communication.Connect();
 
             _security = new SecurityHandler(_communication);
@@ -48,7 +50,7 @@ namespace DistributedClientWorker
 
             _dllLoaded = DllHelper.LoadDll(dllPath);
             _dllApi = DllHelper.GetNewTypeFromDll<IDllApi>(_dllLoaded);
-            _jobWorker = new DllWorker(_dllApi, _communication);
+            _jobWorker.SetDllApi(_dllApi);
         }
 
 

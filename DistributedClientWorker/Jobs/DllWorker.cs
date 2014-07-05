@@ -13,15 +13,14 @@ namespace DistributedClientWorker.Wrappers
 {
     public class DllWorker : IClientApi, IDisposable
     {
-        private readonly IDllApi _brain;
+        private IDllApi _brain;
         private readonly ReaderWriterLock _workLock;
         private readonly WorkerDllCommunication _communication;
         private bool _awaitingSupportingDataUpdate = false;
 
 
-        public DllWorker(IDllApi brain, WorkerDllCommunication communication)
+        public DllWorker(WorkerDllCommunication communication)
         {
-            _brain = brain;
             _communication = communication;
 
             _communication.OnWorkRequest += QueueNewJob;
@@ -31,8 +30,17 @@ namespace DistributedClientWorker.Wrappers
         }
 
 
+        public void SetDllApi(IDllApi api)
+        {
+            _brain = api;
+        }
+
+
         private void QueueNewJob(WrappedJobData job)
         {
+            while (_brain == null)
+                Thread.Yield();
+
             int availWorkers, availPort;
             int maxWorkers, maxPort;
             ThreadPool.GetAvailableThreads(out availWorkers, out availPort);
@@ -88,6 +96,8 @@ namespace DistributedClientWorker.Wrappers
 
         private void SetSupportingData(Dictionary<String, byte[]> data)
         {
+            while (_brain == null)
+                Thread.Yield();
             var thread = new Thread(() => SetSupportingDataInternal(data));
             thread.Start();
         }
@@ -106,13 +116,11 @@ namespace DistributedClientWorker.Wrappers
             {
                 _workLock.ReleaseWriterLock();
             }
-
         }
 
 
         public void Dispose()
         {
-            _brain.Dispose();
         }
     }
 }
