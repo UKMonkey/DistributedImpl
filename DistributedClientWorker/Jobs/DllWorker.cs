@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Threading;
 using DistributedClientInterfaces.Interfaces;
-using DistributedSharedInterfaces.Jobs;
 using DistributedClientDll.SystemMonitor;
 using DistributedShared.Jobs;
 using System.Collections.Generic;
 using DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction;
-using DistributedClientDll;
 using DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction.Messages;
 
-namespace DistributedClientWorker.Wrappers
+namespace DistributedClientWorker.Jobs
 {
     public class DllWorker : IClientApi, IDisposable
     {

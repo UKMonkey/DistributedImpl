@@ -1,5 +1,4 @@
-﻿using DistributedSharedInterfaces.Jobs;
-using DistributedShared.Network;
+﻿using DistributedShared.Network;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction.Messages;
 using DistributedShared.SystemMonitor.DllMonitoring;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
@@ -7,7 +6,7 @@ using DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction.Message
 using System.Collections.Generic;
 using System;
 using DistributedShared.Jobs;
-using System.Threading;
+
 
 namespace DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction
 {

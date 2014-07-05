@@ -3,13 +3,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 //using DistributedClientWorker.Jobs;
+using DistributedClientWorker.Jobs;
 using DistributedShared.Network;
 using System.Threading;
 using DistributedShared.SystemMonitor;
 using DistributedClientInterfaces.Interfaces;
 using DistributedClientWorker.SystemMonitor;
 using DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction;
-using DistributedClientWorker.Wrappers;
 
 namespace DistributedClientWorker
 {
@@ -45,10 +45,10 @@ namespace DistributedClientWorker
             _communication.Connect();
 
             _security = new SecurityHandler(_communication);
-            _security.RegisterValidDirectory(Path.GetDirectoryName(dllPath));
+            _security.RegisterValidDirectory(Path.GetDirectoryName(_dllPath));
             _security.RegisterValidDirectory(@"C:\Windows");
 
-            _dllLoaded = DllHelper.LoadDll(dllPath);
+            _dllLoaded = DllHelper.LoadDll(_dllPath);
             _dllApi = DllHelper.GetNewTypeFromDll<IDllApi>(_dllLoaded);
             _jobWorker.SetDllApi(_dllApi);
         }
