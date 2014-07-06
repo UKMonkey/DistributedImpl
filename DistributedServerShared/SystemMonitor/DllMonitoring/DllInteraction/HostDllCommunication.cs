@@ -1,7 +1,5 @@
 ﻿using DistributedSharedInterfaces.Jobs;
 using DistributedShared.Network;
-using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction.Messages;
-using DistributedServerInterfaces.Interfaces;
 using DistributedShared.SystemMonitor.DllMonitoring;
 using DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction.Messages;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
@@ -64,7 +62,7 @@ namespace DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction
         /// <param name="jobCount"></param>
         public void GetNextJobGroup(int jobCount)
         {
-            var msg = new ServerRequestNewJobGroupMessage() { JobCount = jobCount };
+            var msg = new ServerRequestNewJobGroupMessage { JobCount = jobCount };
             SendMessage(msg);
         }
 
@@ -75,7 +73,7 @@ namespace DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction
         /// <param name="group"></param>
         public void DeconstructJobGroup(WrappedJobGroup group)
         {
-            var msg = new ServerDeconstructJobGroupMessage() { JobGroup = group };
+            var msg = new ServerDeconstructJobGroupMessage { JobGroup = group };
             SendMessage(msg);
         }
 

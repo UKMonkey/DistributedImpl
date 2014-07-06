@@ -1,5 +1,4 @@
-﻿using DistributedSharedInterfaces.Jobs;
-using DistributedShared.Network;
+﻿using DistributedShared.Network;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction.Messages;
 using DistributedShared.SystemMonitor.DllMonitoring;
 using DistributedShared.SystemMonitor.DllMonitoring.DllInteraction;
@@ -57,7 +56,7 @@ namespace DistributedServerShared.SystemMonitor.DllMonitoring.DllInteraction
         private void DeconstructJobGroupHandler(DllMessage msg)
         {
             var message = (ServerDeconstructJobGroupMessage)msg;
-            ThreadPool.QueueUserWorkItem((x) => JobGroupDeconstructionRequired(message.JobGroup));
+            ThreadPool.QueueUserWorkItem(x => JobGroupDeconstructionRequired(message.JobGroup));
         }
 
 
