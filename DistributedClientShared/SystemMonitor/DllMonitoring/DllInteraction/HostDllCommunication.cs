@@ -18,6 +18,7 @@ namespace DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction
     {
         public event JobCompletedCallback JobCompleted;
         private int _workerCount;
+        private object _workerCountProtection = "Derp";
 
 
         public HostDllCommunication(MessageManager messageManager, String namePrepend)
@@ -37,7 +38,7 @@ namespace DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction
 
         private void JobCompletedHandler(DllMessage msg)
         {
-            lock (this)
+            lock (_workerCountProtection)
             {
                 _workerCount--;
             }
@@ -49,19 +50,19 @@ namespace DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction
 
         public void AddJobData(WrappedJobData data)
         {
-            lock (this)
+            lock (_workerCountProtection)
             {
                 _workerCount++;
             }
 
-            var msg = new ServerDoWorkMessage() { Job = data };
+            var msg = new ServerDoWorkMessage { Job = data };
             SendMessage(msg);
         }
 
 
         public int GetCurrentWorkerCount()
         {
-            lock (this)
+            lock (_workerCountProtection)
             {
                 return _workerCount;
             }
@@ -69,10 +70,7 @@ namespace DistributedClientShared.SystemMonitor.DllMonitoring.DllInteraction
 
         public void SetCurrentSupportingData(Dictionary<string, byte[]> dictionary)
         {
-            var msg = new ServerNewSupportingDataMessage()
-                {
-                    Data = dictionary
-                };
+            var msg = new ServerNewSupportingDataMessage { Data = dictionary };
             SendMessage(msg);
         }
     }
