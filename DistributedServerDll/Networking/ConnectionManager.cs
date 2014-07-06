@@ -94,7 +94,6 @@ namespace DistributedServerDll.Networking
             var msgId = connection.DataReader.ReadShort();
 
             var msg = _messageManager.GetMessage(dllId, msgId);
-
             if (msg == null)
             {
                 SendMessage(connection, new ServerErrorMessage
@@ -178,7 +177,6 @@ namespace DistributedServerDll.Networking
                     {
                         // this provides protection against ThreadAbort exceptions, allowing the thread
                         // to write everything to the stream and push it before the exception is raised.
-
                         var dllId = _messageManager.GetDllIdForMessage(msg);
                         var msgId = _messageManager.GetMessageId(msg);
 

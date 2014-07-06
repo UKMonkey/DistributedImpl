@@ -168,9 +168,9 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
                 var messageType = BitConverter.ToInt16(buffer, 2);
                 var msg = (DllMessage)_msgManager.GetMessage(dllId, messageType);
 
-                Console.WriteLine("Receiving message " + msg.GetType().ToString());
+                //Console.WriteLine("Receiving message " + msg.GetType().ToString());
                 msg.LoadFromStream(_outputStream);
-                Console.WriteLine("Received");
+                //Console.WriteLine("Received");
 
                 lock (this)
                 {
@@ -205,11 +205,11 @@ namespace DistributedShared.SystemMonitor.DllMonitoring
 
             lock (_inputStream)
             {
-                Console.WriteLine("Sending message " + msg.GetType().ToString());
+                //Console.WriteLine("Sending message " + msg.GetType().ToString());
                 _inputStream.Write(buffer, 0, 4);
                 msg.PushToStream(_inputStream);
                 _inputStream.Flush();
-                Console.WriteLine("MessageSent");
+                //Console.WriteLine("MessageSent");
             }
         }
     }
