@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using DistributedClientDll.Networking;
 using DistributedShared.Network.Messages;
 using DistributedClientDll.SystemMonitor.DllMonitoring;
-using DistributedSharedInterfaces.Jobs;
 using DistributedShared.Jobs;
 using DistributedSharedInterfaces.Messages;
 
