@@ -111,6 +111,7 @@ namespace DistributedClientDll.Jobs
                     return;
 
                 dll.SharedMemory.SetCurrentSupportingData(message.Data);
+                _supportingDataVersions[message.DllName] = message.Version;
             }
         }
 
