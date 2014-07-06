@@ -12,6 +12,12 @@ namespace DistributedShared.Network.Messages
         public Dictionary<String, byte[]> Data { get; set; }
 
 
+        public ServerSupportDataMessage()
+        {
+            Data = new Dictionary<string, byte[]>();
+        }
+
+
         protected override void Serialise(IMessageInputStream target)
         {
             target.Write(DllName);
