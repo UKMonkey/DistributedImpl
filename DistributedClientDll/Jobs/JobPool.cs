@@ -16,7 +16,7 @@ namespace DistributedClientDll.Jobs
         private readonly Queue<WrappedJobData> _jobPool;
         private volatile short _minJobCount;
         private readonly Thread _worker;
-        private bool _awaitingNewJobs;
+        private volatile bool _awaitingNewJobs;
 
         private volatile bool _doWork;
         private readonly AutoResetEvent _jobsAvailable = new AutoResetEvent(false);
